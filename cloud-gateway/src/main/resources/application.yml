@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: gateway-service
+
+  cloud:
+    gateway:
+      routes:
+        - id: tenants-route
+          uri: http://localhost:8181
+          predicates:
+            - Host=*.domain
+            - Path=/**
+          filters:
+            - name: TenantHeaderFilter
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+
+server:
+  port: 80
