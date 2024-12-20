@@ -1,0 +1,39 @@
+server:
+  port: 8181
+
+spring:
+  application:
+    name: MikrotikHotspot
+
+  flyway:
+    create-schemas: true
+    enabled: false
+    locations: classpath:db/migration/tenant_users
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/isp_mngt
+    username: postgres
+    password: 1234
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+
+mpesa:
+  daraja:
+    consumer-key: WGb7ebw7ds6Afm82JcSOYKvsEl1XqhuG6ZRwe2a08utCbUYv
+    consumer-secret: O4lOyDUvxdkXB3dn9UEW40GU0OkErqOdPw8cv5Gzojk3fgnq81vxsZGNYKGaHFAq
+    oauth-endpoint: https://sandbox.safaricom.co.ke/oauth/v1/generate
+    grant_type: client_credentials
+
+    stkPassKey: bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919
+    stkPushShortCode: 174379
+    stkPushRequestUrl: https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest
+    stkPushRequestCallbackUrl: https://6843-105-161-8-203.ngrok-free.app/payment/transaction-status
+    stkPushQueryUrl: https://sandbox.safaricom.co.ke/mpesa/stkpushquery/v1/query
+
+
+
