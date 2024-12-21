@@ -2,9 +2,9 @@ package com.wolfcode.MikrotikNetwork.service;
 
 
 import com.wolfcode.MikrotikNetwork.dto.ClientResponse;
-import com.wolfcode.MikrotikNetwork.dto.IPPoolDto;
 import com.wolfcode.MikrotikNetwork.dto.hotspot.ActiveUsersResponse;
 import com.wolfcode.MikrotikNetwork.dto.hotspot.RouterClientResponse;
+import com.wolfcode.MikrotikNetwork.dto.network.IPPoolDto;
 import com.wolfcode.MikrotikNetwork.dto.pppoe.PPPoEClientDto;
 import com.wolfcode.MikrotikNetwork.entity.PPPoEPlans;
 import com.wolfcode.MikrotikNetwork.entity.Routers;
@@ -269,8 +269,8 @@ public class MikrotikClient {
     }
 
 
-    public void createIPPool(IPPoolDto ipPoolDto) throws MikrotikApiException {
-        connectRouter(ipPoolDto.getRouter());
+    public void createIPPool(IPPoolDto ipPoolDto, String routerName) throws MikrotikApiException {
+        connectRouter(routerName);
         System.out.println(ipPoolDto);
         try {
             String command = String.format(
@@ -331,8 +331,8 @@ public class MikrotikClient {
         }
     }
 
-    public void createPppoeClient(PPPoEClientDto request) throws MikrotikApiException {
-        connectRouter(request.getRouter());
+    public void createPppoeClient(PPPoEClientDto request, String routerName) throws MikrotikApiException {
+        connectRouter(routerName);
         try {
             String command = String.format(
                     "/ppp/secret/add name=%s password=%s service=pppoe profile=%s", request.getUsername(),

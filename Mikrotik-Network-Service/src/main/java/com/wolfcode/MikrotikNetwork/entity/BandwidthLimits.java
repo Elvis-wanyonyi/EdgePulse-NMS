@@ -33,7 +33,7 @@ public class BandwidthLimits {
     private String downloadUnit;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(referencedColumnName = "routerName")
+    @JoinColumn(name = "router_id")
     private Routers router;
 
 

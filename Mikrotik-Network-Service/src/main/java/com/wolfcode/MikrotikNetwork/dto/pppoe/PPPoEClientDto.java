@@ -1,6 +1,7 @@
 package com.wolfcode.MikrotikNetwork.dto.pppoe;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,11 +17,12 @@ public class PPPoEClientDto {
     private String account;
     private String name;
     private String phone;
-    private String plan;
+    @NotNull(message = "Choose a pppoe plan")
+    private Long plan;
     private String payment;
     private String balance;
-    private String router;
-    private String status;
+    @NotNull(message = "Choose router")
+    private Long router;
     private String username;
     private String password;
 }

@@ -12,14 +12,14 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class PackagePlanDto {
+public class HotspotPlanDto {
 
     @NotBlank(message = "Enter router name")
-    private String routerName;
+    private Long router;
     @NotNull(message = "Enter plan name")
     private String packageName;
     @NotNull(message = "Choose bandwidth limit")
-    private String bandwidthLimit;
+    private Long bandwidthLimit;
     private String dataLimit;
     @NotNull(message = "Enter plan validity")
     private Integer planValidity;

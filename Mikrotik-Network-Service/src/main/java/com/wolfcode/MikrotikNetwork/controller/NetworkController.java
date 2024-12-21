@@ -1,6 +1,7 @@
 package com.wolfcode.MikrotikNetwork.controller;
 
-import com.wolfcode.MikrotikNetwork.dto.IPPoolDto;
+import com.wolfcode.MikrotikNetwork.dto.network.BandwidthDto;
+import com.wolfcode.MikrotikNetwork.dto.network.IPPoolDto;
 import com.wolfcode.MikrotikNetwork.dto.network.RouterRequest;
 import com.wolfcode.MikrotikNetwork.entity.Routers;
 import com.wolfcode.MikrotikNetwork.service.NetworkService;
@@ -49,15 +50,38 @@ public class NetworkController {
     }
 
     @GetMapping("/ip-pool")
-    public List<IPPoolDto> getIPPools(){
+    public List<IPPoolDto> getIPPools() {
         return networkService.getIPPools();
     }
 
     @DeleteMapping("/ip-pool/{router}/{name}")
     public String deleteIPPool(@PathVariable String name, @PathVariable String router) throws MikrotikApiException {
-        networkService.deleteIPPool(name,router);
+        networkService.deleteIPPool(name, router);
         return "Success!";
     }
 
+
+    @PostMapping("/bandwidth")
+    public String addBandwidthPlan(@RequestBody BandwidthDto request) {
+        networkService.addBandwidthPlan(request);
+        return "Success !";
+    }
+
+    @GetMapping("/bandwidth")
+    public List<BandwidthDto> getBandwidthPlan() {
+        return networkService.getBandwidthPlans();
+    }
+
+    @PutMapping("/bandwidth/{id}")
+    public String editBandwidthPlan(@PathVariable Long id, @RequestBody BandwidthDto request) {
+        networkService.editBandwidthPlan(id, request);
+        return "Success !";
+    }
+
+    @DeleteMapping("/bandwidth/{id}")
+    public String deleteBandwidthPlan(@PathVariable Long id) {
+        networkService.deleteBandwidthPlan(id);
+        return "Success !";
+    }
 
 }

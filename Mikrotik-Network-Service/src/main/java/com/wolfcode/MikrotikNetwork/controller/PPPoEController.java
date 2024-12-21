@@ -23,7 +23,7 @@ public class PPPoEController {
         return "Success!";
     }
 
-    @GetMapping
+    @GetMapping("/clients")
     public List<PPPoEClientDto> getPppoeProfiles(){
         return pppoeService.getAllPppoeClients();
     }
@@ -46,10 +46,7 @@ public class PPPoEController {
         return "Client added successfully";
     }
 
-    @GetMapping("/clients")
-    public List<PPPoEClientDto> getAllPppoeClients(){
-        return pppoeService.getPppoeClients();
-    }
+
     @GetMapping("/clients/{id}")
     public PPPoEClientDto getPppoeClientById(@PathVariable Long id){
         return pppoeService.getClientById(id);

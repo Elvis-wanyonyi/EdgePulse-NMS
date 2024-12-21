@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 @Table(name = "plans")
-public class PackagePlans {
+public class HotspotPlans {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
@@ -27,10 +27,11 @@ public class PackagePlans {
     private int price;
 
     @OneToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "bandwidth", referencedColumnName = "name")
+    @JoinColumn(name = "bandwidth_id")
     private BandwidthLimits bandwidthLimit;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "router_id")
     private Routers router;
 
 }

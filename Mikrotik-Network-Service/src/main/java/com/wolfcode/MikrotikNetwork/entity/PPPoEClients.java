@@ -20,14 +20,17 @@ public class PPPoEClients {
     private String account;
     private String name;
     private String phone;
-    private String plan;
     private String payment;
     private String balance;
-    private String status;
     private String username;
     private String password;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "plan_id")
+    private PPPoEPlans plan;
+
     @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "router_id")
     private Routers router;
 
 

@@ -1,4 +1,4 @@
-package com.wolfcode.MikrotikNetwork.dto;
+package com.wolfcode.MikrotikNetwork.dto.network;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -16,5 +16,5 @@ public class IPPoolDto {
     @NotBlank(message = "Provide the ip range")
     private String ipRange;
     @NotNull(message = "Enter a valid router")
-    private String router;
+    private Long router;
 }

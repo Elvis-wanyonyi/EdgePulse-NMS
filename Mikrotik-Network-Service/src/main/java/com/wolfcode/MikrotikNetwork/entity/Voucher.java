@@ -28,9 +28,10 @@ public class Voucher {
     private LocalDateTime expiryDate;
 
     @ManyToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-    @JoinColumn(name = "plan", referencedColumnName = "package_plan")
-    private PackagePlans plan;
+    @JoinColumn(name = "plan_id")
+    private HotspotPlans plan;
 
     @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "router_id")
     private Routers router;
 }

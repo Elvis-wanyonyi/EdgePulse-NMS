@@ -7,8 +7,7 @@ import com.wolfcode.MikrotikNetwork.dto.UserCredentials;
 import com.wolfcode.MikrotikNetwork.dto.hotspot.ActiveUsersResponse;
 import com.wolfcode.MikrotikNetwork.dto.hotspot.MpesaCodeRequest;
 import com.wolfcode.MikrotikNetwork.dto.hotspot.RouterClientResponse;
-import com.wolfcode.MikrotikNetwork.dto.network.BandwidthDto;
-import com.wolfcode.MikrotikNetwork.dto.network.PackagePlanDto;
+import com.wolfcode.MikrotikNetwork.dto.network.HotspotPlanDto;
 import com.wolfcode.MikrotikNetwork.dto.voucher.*;
 import com.wolfcode.MikrotikNetwork.entity.*;
 import com.wolfcode.MikrotikNetwork.repository.*;
@@ -48,9 +47,9 @@ public class MikrotikService {
     public void connectUser(String ipAddress, String macAddress, String packageType,
                             String phoneNumber, String mpesaReceiptNumber, String routerName) {
 
-        Optional<PackagePlans> packagePlans = packageRepository.findByPackageName(packageType);
+        Optional<HotspotPlans> packagePlans = packageRepository.findByPackageName(packageType);
         if (packagePlans.isPresent()) {
-            PackagePlans packagePlan = packagePlans.get();
+            HotspotPlans packagePlan = packagePlans.get();
 
             try {
                 HotspotClients hotspotClients = HotspotClients.builder()
@@ -109,9 +108,9 @@ public class MikrotikService {
             throw new IllegalArgumentException("Router not found");
         }
 
-        Optional<PackagePlans> plans = packageRepository.findByPackageName(paymentSession.getPackageType());
+        Optional<HotspotPlans> plans = packageRepository.findByPackageName(paymentSession.getPackageType());
         if (plans.isPresent()) {
-            PackagePlans packagePlan = plans.get();
+            HotspotPlans packagePlan = plans.get();
 
             try {
 
@@ -160,9 +159,9 @@ public class MikrotikService {
             throw new IllegalArgumentException("Router not found");
         }
 
-        Optional<PackagePlans> plansOptional = packageRepository.findByPackageName(voucherRequests.getPlan());
+        Optional<HotspotPlans> plansOptional = packageRepository.findByPackageName(voucherRequests.getPlan());
         if (plansOptional.isPresent()) {
-            PackagePlans plan = plansOptional.get();
+            HotspotPlans plan = plansOptional.get();
 
             for (int i = 0; i < voucherRequests.getQuantity(); i++) {
                 String voucherCode =
@@ -218,21 +217,21 @@ public class MikrotikService {
             return response;
         }
 
-        Optional<PackagePlans> plans = packageRepository.findByPackageName(voucher.getPlan().getPackageName());
+        Optional<HotspotPlans> plans = packageRepository.findByPackageName(voucher.getPlan().getPackageName());
         if (plans.isEmpty()) {
             throw new IllegalArgumentException("Package not found");
         }
-        PackagePlans packagePlans = plans.get();
+        HotspotPlans hotspotPlans = plans.get();
 
 
         voucher.setRedeemedBy(redeemVoucher.getMacAddress());
         voucher.setIpAddress(redeemVoucher.getIpAddress());
         voucher.setStatus(VoucherStatus.USED);
-        voucher.setExpiryDate(LocalDateTime.now().plusHours(packagePlans.getPlanValidity()));
+        voucher.setExpiryDate(LocalDateTime.now().plusHours(hotspotPlans.getPlanValidity()));
         voucherRepository.save(voucher);
 
-        String profile = packagePlans.getPackageName();
-        String uptimeLimit = convertHoursToUptimeLimit(packagePlans.getPlanValidity());
+        String profile = hotspotPlans.getPackageName();
+        String uptimeLimit = convertHoursToUptimeLimit(hotspotPlans.getPlanValidity());
 
         mikroTikClient.redeemVoucher(redeemVoucher.getVoucherCode(), redeemVoucher.getIpAddress(),
                 redeemVoucher.getMacAddress(), profile, uptimeLimit, voucher.getRouter().getRouterName());
@@ -242,7 +241,7 @@ public class MikrotikService {
                 .macAddress(redeemVoucher.getMacAddress())
                 .username(voucher.getVoucherCode())
                 .sessionStartTime(LocalDateTime.now())
-                .sessionEndTime(LocalDateTime.now().plusHours(packagePlans.getPlanValidity()))
+                .sessionEndTime(LocalDateTime.now().plusHours(hotspotPlans.getPlanValidity()))
                 .build();
         userSessionRepository.save(userSession);
 
@@ -253,7 +252,7 @@ public class MikrotikService {
                 .loginBy(LoginBy.VOUCHER)
                 .createdOn(LocalDateTime.now())
                 .expiresOn(null)
-                .amount(packagePlans.getPrice())
+                .amount(hotspotPlans.getPrice())
                 .build();
         hotspotClientsRepository.save(hotspotClients);
 
@@ -343,11 +342,11 @@ public class MikrotikService {
 
     public VoucherResponse editVoucher(String voucherCode, UpdateVoucher updateVoucher) {
         Voucher voucher = voucherRepository.findByVoucherCodeIgnoreCase(voucherCode);
-        Optional<PackagePlans> plans = packageRepository.findByPackageName(updateVoucher.getPackageType());
+        Optional<HotspotPlans> plans = packageRepository.findByPackageName(updateVoucher.getPackageType());
         if (plans.isEmpty()) {
             throw new IllegalArgumentException("Package not found : " + updateVoucher.getPackageType());
         }
-        PackagePlans plan = plans.get();
+        HotspotPlans plan = plans.get();
 
         if (voucher != null) {
             voucher.setPlan(plan);
@@ -393,60 +392,54 @@ public class MikrotikService {
     }
 
 
-    public void createHotspotPlan(@Valid PackagePlanDto packagePlanDto) {
-        Routers router = routerRepository.findByRouterName(packagePlanDto.getRouterName());
-        if (router == null) {
-            throw new IllegalArgumentException("Router not found");
-        }
+    public void createHotspotPlan(@Valid HotspotPlanDto hotspotPlanDto) {
+        Routers router = routerRepository.findById(hotspotPlanDto.getRouter())
+                .orElseThrow(()-> new IllegalArgumentException("Router not found : " + hotspotPlanDto.getRouter()));
 
-        Optional<BandwidthLimits> bandwidth = bandwidthRepository.findByName(packagePlanDto.getBandwidthLimit());
-        if (bandwidth.isPresent()) {
-            BandwidthLimits bandwidthLimits = bandwidth.get();
+        BandwidthLimits bandwidth = bandwidthRepository.findById(hotspotPlanDto.getBandwidthLimit())
+                .orElseThrow(()-> new IllegalArgumentException("Bandwidth not found : "));
 
-            PackagePlans plans = PackagePlans.builder()
+            HotspotPlans plans = HotspotPlans.builder()
                     .router(router)
-                    .packageName(packagePlanDto.getPackageName())
-                    .bandwidthLimit(bandwidthLimits)
-                    .planValidity(packagePlanDto.getPlanValidity())
-                    .planDuration(packagePlanDto.getPlanDuration())
-                    .price(packagePlanDto.getPrice())
-                    .dataLimit(packagePlanDto.getDataLimit())
+                    .packageName(hotspotPlanDto.getPackageName())
+                    .bandwidthLimit(bandwidth)
+                    .planValidity(hotspotPlanDto.getPlanValidity())
+                    .planDuration(hotspotPlanDto.getPlanDuration())
+                    .price(hotspotPlanDto.getPrice())
+                    .dataLimit(hotspotPlanDto.getDataLimit())
                     .build();
             packageRepository.save(plans);
 
-        } else {
-            throw new IllegalArgumentException("Bandwidth Limit not found");
-        }
     }
 
-    public List<PackagePlanDto> getHotspotPlans() {
-        List<PackagePlans> packagePlans = packageRepository.findAll();
-        return Optional.of(packagePlans)
+    public List<HotspotPlanDto> getHotspotPlans() {
+        List<HotspotPlans> hotspotPlans = packageRepository.findAll();
+        return Optional.of(hotspotPlans)
                 .orElse(Collections.emptyList())
                 .stream()
                 .map(this::mapToPackagePlanDto)
                 .collect(Collectors.toList());
     }
 
-    private PackagePlanDto mapToPackagePlanDto(PackagePlans plans) {
-        return PackagePlanDto.builder()
+    private HotspotPlanDto mapToPackagePlanDto(HotspotPlans plans) {
+        return HotspotPlanDto.builder()
                 .packageName(plans.getPackageName())
-                .bandwidthLimit(plans.getBandwidthLimit().getName())
+                .bandwidthLimit(plans.getBandwidthLimit().getId())
                 .planValidity(plans.getPlanValidity())
                 .planDuration(plans.getPlanDuration())
                 .dataLimit(plans.getDataLimit())
                 .price(plans.getPrice())
-                .routerName(plans.getRouter().getRouterName())
+                .router(plans.getRouter().getId())
                 .build();
     }
 
-    public void editHotspotPlan(Long id, @Valid PackagePlanDto packagePlanDto) {
-        Optional<PackagePlans> plans = packageRepository.findById(id);
+    public void editHotspotPlan(Long id, @Valid HotspotPlanDto hotspotPlanDto) {
+        Optional<HotspotPlans> plans = packageRepository.findById(id);
 
         if (plans.isPresent()) {
-            PackagePlans packagePlans = plans.get();
-            packagePlans.setPackageName(packagePlanDto.getPackageName());
-            packageRepository.save(packagePlans);
+            HotspotPlans hotspotPlans = plans.get();
+            hotspotPlans.setPackageName(hotspotPlanDto.getPackageName());
+            packageRepository.save(hotspotPlans);
 
         } else {
             throw new IllegalArgumentException("Package not found : " + id);
@@ -458,47 +451,4 @@ public class MikrotikService {
 
     }
 
-
-    public void addBandwidthPlan(BandwidthDto request) {
-        BandwidthLimits bandwidthLimits = BandwidthLimits.builder()
-                .name(request.getName())
-                .uploadSpeed(request.getUploadSpeed())
-                .uploadUnit(request.getUploadUnit())
-                .downloadSpeed(request.getDownloadSpeed())
-                .downloadUnit(request.getDownloadUnit())
-                .router(Routers.builder().routerName(request.getRouterName()).build())
-                .build();
-        bandwidthRepository.save(bandwidthLimits);
-    }
-
-    public List<BandwidthDto> getBandwidthPlans() {
-        List<BandwidthLimits> bandwidthLimits = bandwidthRepository.findAll();
-        return bandwidthLimits.stream().map(this::MapToDto).toList();
-    }
-
-    private BandwidthDto MapToDto(BandwidthLimits limits) {
-        return BandwidthDto.builder()
-                .name(limits.getName())
-                .uploadSpeed(limits.getUploadSpeed())
-                .uploadUnit(limits.getUploadUnit())
-                .downloadSpeed(limits.getDownloadSpeed())
-                .downloadUnit(limits.getDownloadUnit())
-                .routerName(limits.getRouter().getRouterName())
-                .build();
-    }
-
-    public void editBandwidthPlan(Long id, BandwidthDto request) {
-        bandwidthRepository.findById(id).ifPresent(bandwidth -> {
-            bandwidth.setUploadSpeed(request.getUploadSpeed());
-            bandwidth.setUploadUnit(request.getUploadUnit());
-            bandwidth.setDownloadSpeed(request.getDownloadSpeed());
-            bandwidth.setDownloadUnit(request.getDownloadUnit());
-            bandwidth.setName(request.getName());
-            bandwidthRepository.save(bandwidth);
-        });
-    }
-
-    public void deleteBandwidthPlan(Long id) {
-        bandwidthRepository.deleteById(id);
-    }
 }

@@ -1,5 +1,6 @@
 package com.wolfcode.MikrotikNetwork.controller;
 
+import com.wolfcode.MikrotikNetwork.dto.network.HotspotPlanDto;
 import com.wolfcode.MikrotikNetwork.dto.voucher.CreateVouchers;
 import com.wolfcode.MikrotikNetwork.dto.voucher.RedeemVoucher;
 import com.wolfcode.MikrotikNetwork.dto.voucher.UpdateVoucher;
@@ -18,19 +19,19 @@ import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/voucher")
-public class VoucherController {
+@RequestMapping("/hotspot")
+public class HotspotController {
 
     private final MikrotikService mikrotikService;
 
 
-    @PostMapping("/add")
+    @PostMapping("/add-voucher")
     public String createHotspotVoucher(@RequestBody CreateVouchers createVouchers) {
         mikrotikService.createHotspotVoucher(createVouchers);
         return "success";
     }
 
-    @PostMapping
+    @PostMapping("/voucher")
     @ResponseStatus(HttpStatus.OK)
     public ResponseEntity<Map<String, String>> redeemVoucher(@Valid @RequestBody RedeemVoucher redeemVoucher) throws MikrotikApiException {
         Map<String, String> userCredentials = mikrotikService.redeemVoucher(redeemVoucher);
@@ -47,14 +48,40 @@ public class VoucherController {
         return ResponseEntity.ok(voucherResponse);
     }
 
-    @DeleteMapping("/{voucherCode}")
+    @DeleteMapping("/voucher/{voucherCode}")
     public String deleteVoucher(@PathVariable String voucherCode) {
         mikrotikService.deleteVoucher(voucherCode);
         return "success";
     }
 
-    @GetMapping
+    @GetMapping("/all-vouchers")
     public ResponseEntity<List<Voucher>> getAllVouchers() {
         return ResponseEntity.ok(mikrotikService.getAllVouchers());
     }
+
+
+    @PostMapping("/add-plan")
+    public ResponseEntity<String> createHotspotPackage(@Valid @RequestBody HotspotPlanDto hotspotPlanDto) {
+        mikrotikService.createHotspotPlan(hotspotPlanDto);
+        return ResponseEntity.ok("Successfully created hotspot plan");
+    }
+
+    @GetMapping("/plans")
+    public ResponseEntity<List<HotspotPlanDto>> getHotspotPackages() {
+        return ResponseEntity.ok(mikrotikService.getHotspotPlans());
+    }
+
+    @PutMapping("/plan/edit/{id}")
+    public ResponseEntity<String> editHotspotPlan(@PathVariable Long id,
+                                                  @Valid @RequestBody HotspotPlanDto hotspotPlanDto) {
+        mikrotikService.editHotspotPlan(id, hotspotPlanDto);
+        return ResponseEntity.ok("Successfully updated hotspot plan");
+    }
+
+    @DeleteMapping("/plan/{id}")
+    public ResponseEntity<String> deleteHotspotPlan(@PathVariable Long id) {
+        mikrotikService.deleteHotspotPlan(id);
+        return ResponseEntity.ok("Successfully deleted hotspot plan");
+    }
+
 }

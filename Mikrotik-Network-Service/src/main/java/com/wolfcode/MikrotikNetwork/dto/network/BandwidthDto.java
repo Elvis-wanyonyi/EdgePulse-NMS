@@ -1,5 +1,6 @@
 package com.wolfcode.MikrotikNetwork.dto.network;
 
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,6 +17,7 @@ public class BandwidthDto {
     private String uploadUnit;
     private Integer downloadSpeed;
     private String downloadUnit;
-    private String routerName;
+    @NotNull(message = "Choose router")
+    private Long router;
 
 }

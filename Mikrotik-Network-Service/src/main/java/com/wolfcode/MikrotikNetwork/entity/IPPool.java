@@ -23,5 +23,6 @@ public class IPPool {
     private String ipRange;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "router_id")
     private Routers router;
 }

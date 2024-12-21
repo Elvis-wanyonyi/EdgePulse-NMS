@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 
 @Service
@@ -33,16 +34,15 @@ public class TenantSchema {
 
 
     public void registerTenant(TenantRequest request) {
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            throw new RuntimeException("Passwords do not match");
+        }
+        Optional<Users> user = usersRepository.findByEmail(request.getEmail());
+        if(user.isPresent()) {
+            throw new RuntimeException("User already exists");
+        }
 
         try {
-
-            Flyway flyway = Flyway.configure()
-                    .dataSource(jdbcUrlTemplate, username, password)
-                    .schemas(request.getName())
-                    .locations(migrationPath)
-                    .load();
-            flyway.migrate();
-
             Users tenants = Users.builder()
                     .name(request.getName())
                     .email(request.getEmail())
@@ -51,6 +51,13 @@ public class TenantSchema {
                     .password(request.getPassword())
                     .build();
             usersRepository.save(tenants);
+
+            Flyway flyway = Flyway.configure()
+                    .dataSource(jdbcUrlTemplate, username, password)
+                    .schemas(request.getName())
+                    .locations(migrationPath)
+                    .load();
+            flyway.migrate();
 
         } catch (Exception e) {
             throw new RuntimeException("Ran into a problem creating tenant.", e);

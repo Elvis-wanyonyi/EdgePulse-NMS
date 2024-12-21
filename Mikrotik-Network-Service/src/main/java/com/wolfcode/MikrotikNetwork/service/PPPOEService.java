@@ -9,7 +9,7 @@ import me.legrange.mikrotik.MikrotikApiException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
+
 
 @Service
 @RequiredArgsConstructor
@@ -23,25 +23,15 @@ public class PPPOEService {
     private final BandwidthRepository bandwidthRepository;
 
 
-    public List<PPPoEClientDto> getPppoeClients() {
-        return null;
-    }
-
     public void createPppoeProfile(PPPOEProfileDto profileDto) throws MikrotikApiException {
-        Routers router  = routerRepository.findByRouterName(profileDto.getRouter());
-        if (router == null) {
-            throw new IllegalArgumentException("Router not found");
-        }
-        IPPool pool = poolRepository.findByPoolName(profileDto.getIpPool());
-        if (pool == null) {
-            throw new IllegalArgumentException("IP pool not found");
-        }
-        Optional<BandwidthLimits> bandwidth = bandwidthRepository.findByName(profileDto.getBandwidthLimit());
-        if (bandwidth.isEmpty()){
-            throw new IllegalArgumentException("Bandwidth limit not found");
-        }
-        BandwidthLimits bandwidthLimit = bandwidth.get();
+        Routers router = routerRepository.findById(profileDto.getRouter())
+                .orElseThrow(() -> new IllegalArgumentException("Router not found"));
 
+        IPPool pool = poolRepository.findById(profileDto.getIpPool())
+                .orElseThrow(() -> new IllegalArgumentException("IPPool not found"));
+
+        BandwidthLimits bandwidth = bandwidthRepository.findById(profileDto.getBandwidthLimit())
+                .orElseThrow(() -> new IllegalArgumentException("Bandwidth plan not found"));
 
         PPPoEPlans plans = pppoeProfileRepository.findByName(profileDto.getName());
         if (plans == null) {
@@ -51,7 +41,7 @@ public class PPPOEService {
                     .ipPool(pool)
                     .planValidity(profileDto.getPlanValidity())
                     .router(router)
-                    .bandwidthLimit(bandwidthLimit)
+                    .bandwidthLimit(bandwidth)
                     .build();
             pppoeProfileRepository.save(plan);
 
@@ -65,63 +55,76 @@ public class PPPOEService {
     }
 
     private PPPoEClientDto mapToResponse(PPPoEClients clients) {
+
         return PPPoEClientDto.builder()
                 .name(clients.getName())
-                .plan(clients.getPlan())
+                .plan(clients.getPlan().getId())
                 .account(clients.getAccount())
                 .phone(clients.getPhone())
                 .payment(clients.getPayment())
                 .balance(clients.getBalance())
-                .status(clients.getStatus())
-                .router(clients.getRouter().getRouterName())
+                .router(clients.getRouter().getId())
                 .build();
     }
 
     public void deletePppoeProfile(String name, String router) throws MikrotikApiException {
-        mikrotikClient.removePppoeProfile(name,router);
+        mikrotikClient.removePppoeProfile(name, router);
 
         pppoeProfileRepository.deleteProfileByName(name);
 
     }
 
     public void updatePppoeProfile(String name, PPPOEProfileDto profileDto) {
+        IPPool pool = poolRepository.findById(profileDto.getIpPool())
+                .orElseThrow(() -> new IllegalArgumentException("IPPool not found"));
+
+        BandwidthLimits bandwidth = bandwidthRepository.findById(profileDto.getBandwidthLimit())
+                .orElseThrow(() -> new IllegalArgumentException("Bandwidth plan not found"));
+
         PPPoEPlans plan = pppoeProfileRepository.findByName(name);
         if (plan != null) {
             plan.setName(name);
             plan.setPlanValidity(profileDto.getPlanValidity());
-            plan.setRouter(Routers.builder().routerName(profileDto.getRouter()).build());
-            plan.setIpPool(IPPool.builder().poolName(profileDto.getIpPool()).build());
-            plan.setBandwidthLimit(BandwidthLimits.builder().name(profileDto.getBandwidthLimit()).build());
+            plan.setIpPool(pool);
+            plan.setBandwidthLimit(bandwidth);
         }
     }
 
     public PPPoEClientDto getClientById(Long id) {
-        PPPoEClients client = pppoeClientsRepo.findById(id).orElse(null);
-        assert client != null;
+        PPPoEClients client = pppoeClientsRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Client not found"));
+
+        PPPoEPlans plan = pppoeProfileRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("PPPOEProfile not found"));
+
         return PPPoEClientDto.builder()
                 .name(client.getName())
-                .plan(client.getPlan())
+                .plan(plan.getId())
                 .account(client.getAccount())
                 .phone(client.getPhone())
                 .payment(client.getPayment())
                 .balance(client.getBalance())
-                .status(client.getStatus())
-                .router(client.getRouter().getRouterName())
+                .router(client.getRouter().getId())
                 .build();
     }
 
     public void addPppoeClient(PPPoEClientDto request) throws MikrotikApiException {
-        mikrotikClient.createPppoeClient(request);
+        Routers router = routerRepository.findById(request.getRouter())
+                .orElseThrow(() -> new IllegalArgumentException("Router not found"));
+        PPPoEPlans plans = pppoeProfileRepository.findById(request.getPlan())
+                .orElseThrow(() -> new IllegalArgumentException("Plan not found"));
+
         PPPoEClients client = PPPoEClients.builder()
                 .name(request.getName())
-                .plan(request.getPlan())
+                .plan(plans)
                 .account(request.getAccount())
                 .phone(request.getPhone())
                 .payment(request.getPayment())
                 .balance(request.getBalance())
-                .status(request.getStatus())
-                .router(Routers.builder().routerName(request.getRouter()).build())
+                .router(router)
                 .build();
         pppoeClientsRepo.save(client);
+
+        mikrotikClient.createPppoeClient(request, router.getRouterName());
     }
 }

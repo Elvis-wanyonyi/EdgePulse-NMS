@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "pppoe_profile")
+@Table(name = "pppoe_plans")
 public class PPPoEPlans {
 
     @Id
@@ -20,15 +20,16 @@ public class PPPoEPlans {
     private String name;
     private String planValidity;
 
-    @ManyToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-    @JoinColumn(name = "bandwidth", referencedColumnName = "name")
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "bandwidth_id")
     private BandwidthLimits bandwidthLimit;
 
-    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-    @JoinColumn(name = "ip_pool", referencedColumnName = "pool_name")
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "ip_pool_id")
     private IPPool ipPool;
 
     @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "router_id")
     private Routers router;
 
 }
