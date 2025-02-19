@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: MikrotikHotspot
+    name: Network-Service
 
   flyway:
     create-schemas: true
@@ -11,7 +11,7 @@ spring:
     locations: classpath:db/migration/tenant_users
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/isp_mngt
+    url: jdbc:postgresql://localhost:5432/edge_plus
     username: postgres
     password: 1234
   jpa:

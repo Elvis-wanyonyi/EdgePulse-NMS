@@ -1,7 +1,7 @@
 package com.wolfcode.MikrotikNetwork.schema;
 
-import com.wolfcode.MikrotikNetwork.tenants.domain.Users;
 import com.wolfcode.MikrotikNetwork.tenants.dto.TenantRequest;
+import com.wolfcode.MikrotikNetwork.tenants.entity.Users;
 import com.wolfcode.MikrotikNetwork.tenants.repo.UsersRepository;
 import org.flywaydb.core.Flyway;
 import org.springframework.beans.factory.annotation.Value;

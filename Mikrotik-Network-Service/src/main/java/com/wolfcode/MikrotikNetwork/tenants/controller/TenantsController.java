@@ -4,6 +4,7 @@ import com.wolfcode.MikrotikNetwork.schema.TenantSchema;
 import com.wolfcode.MikrotikNetwork.tenants.dto.TenantRequest;
 import com.wolfcode.MikrotikNetwork.tenants.dto.TenantsResponse;
 import com.wolfcode.MikrotikNetwork.tenants.service.TenantService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,8 +23,12 @@ public class TenantsController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<String> registerTenant(@RequestBody TenantRequest request) {
-        tenantSchema.registerTenant(request);
+    public ResponseEntity<String> registerTenant(@RequestBody @Valid TenantRequest request) {
+        try {
+            tenantSchema.registerTenant(request);
+        } catch (RuntimeException e) {
+            throw new RuntimeException("Error registering tenant", e);
+        }
         return ResponseEntity.ok("Tenant registered successfully!");
     }
 
@@ -38,4 +43,5 @@ public class TenantsController {
         tenantService.removeTenant(name);
         return ResponseEntity.ok("Tenant deleted successfully!");
     }
+
 }

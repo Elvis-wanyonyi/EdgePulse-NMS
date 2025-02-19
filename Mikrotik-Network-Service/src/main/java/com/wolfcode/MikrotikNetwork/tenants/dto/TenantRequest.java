@@ -1,5 +1,6 @@
 package com.wolfcode.MikrotikNetwork.tenants.dto;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -12,7 +13,7 @@ public class TenantRequest {
 
     @NotNull(message = "Field is required")
     private String name;
-    @NotNull(message = "Enter valid email")
+    @Email( message = "Enter valid email")
     private String email;
     private String phone;
     @NotNull(message = "Enter your password")

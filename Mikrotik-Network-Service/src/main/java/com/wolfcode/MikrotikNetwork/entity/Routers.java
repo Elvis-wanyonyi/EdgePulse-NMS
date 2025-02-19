@@ -19,7 +19,7 @@ public class Routers {
     private Long id;
     @Column(name = "router_name", nullable = false, unique = true)
     private String routerName;
-    @Column(name = "router_ip_address")
+    @Column(name = "router_ip_address",nullable = false, unique = true)
     private String routerIPAddress;
     @Column(nullable = false)
     private String username;

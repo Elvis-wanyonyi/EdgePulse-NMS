@@ -6,10 +6,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableScheduling
-public class MikrotikHotspotBillingSystem {
+public class NetworkServiceApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(MikrotikHotspotBillingSystem.class, args);
+		SpringApplication.run(NetworkServiceApplication.class, args);
 	}
 
 }

@@ -44,7 +44,7 @@ public class TenantContextFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return request.getRequestURI().startsWith("/user/**");
+        return request.getRequestURI().matches("^/user(/.*)?$");
     }
 
 	private void clear() {

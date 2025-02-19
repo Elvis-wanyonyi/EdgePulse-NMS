@@ -36,6 +36,8 @@ public class PaymentController {
     private final PaymentSessionRepository paymentSessionRepository;
     private final MikrotikService mikrotikService;
 
+
+
     @GetMapping("/token")
     public ResponseEntity<TokenResponse> getAccessToken() {
         return ResponseEntity.ok(darajaService.getAccessToken());

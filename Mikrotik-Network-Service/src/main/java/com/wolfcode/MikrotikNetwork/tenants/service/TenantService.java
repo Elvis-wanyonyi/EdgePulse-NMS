@@ -1,7 +1,7 @@
 package com.wolfcode.MikrotikNetwork.tenants.service;
 
-import com.wolfcode.MikrotikNetwork.tenants.domain.Users;
 import com.wolfcode.MikrotikNetwork.tenants.dto.TenantsResponse;
+import com.wolfcode.MikrotikNetwork.tenants.entity.Users;
 import com.wolfcode.MikrotikNetwork.tenants.repo.UsersRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

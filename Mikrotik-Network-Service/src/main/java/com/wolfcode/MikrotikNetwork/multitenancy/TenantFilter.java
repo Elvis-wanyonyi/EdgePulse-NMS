@@ -24,10 +24,10 @@ public class TenantFilter implements Filter {
         String requestURI = httpRequest.getRequestURI();
         String tenantId = httpRequest.getHeader("X-TenantId");
 
-        boolean isRegisterEndpoint = requestURI.equalsIgnoreCase("/user/register");
-        boolean isActuatorEndpoint = requestURI.startsWith("**/actuator");
+        boolean isUserEndpoint = requestURI.matches("^/user(/.*)?$");
+        boolean isActuatorEndpoint = requestURI.startsWith("/actuator");
 
-        if (isRegisterEndpoint || isActuatorEndpoint ) {
+        if (isUserEndpoint || isActuatorEndpoint ) {
             chain.doFilter(request, response);
             return;
         }

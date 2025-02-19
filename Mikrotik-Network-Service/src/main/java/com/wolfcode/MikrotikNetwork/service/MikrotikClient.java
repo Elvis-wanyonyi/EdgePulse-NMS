@@ -6,18 +6,17 @@ import com.wolfcode.MikrotikNetwork.dto.hotspot.ActiveUsersResponse;
 import com.wolfcode.MikrotikNetwork.dto.hotspot.RouterClientResponse;
 import com.wolfcode.MikrotikNetwork.dto.network.IPPoolDto;
 import com.wolfcode.MikrotikNetwork.dto.pppoe.PPPoEClientDto;
-import com.wolfcode.MikrotikNetwork.entity.PPPoEPlans;
+import com.wolfcode.MikrotikNetwork.entity.Clients;
+import com.wolfcode.MikrotikNetwork.entity.Plans;
 import com.wolfcode.MikrotikNetwork.entity.Routers;
+import com.wolfcode.MikrotikNetwork.entity.UserSession;
 import com.wolfcode.MikrotikNetwork.repository.RouterRepository;
 import me.legrange.mikrotik.ApiConnection;
 import me.legrange.mikrotik.MikrotikApiException;
 import me.legrange.mikrotik.ResultListener;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -32,10 +31,8 @@ public class MikrotikClient {
 
 
     public void connectRouter(String routerName) throws MikrotikApiException {
-        Routers routerConfig = routerRepository.findByRouterName(routerName);
-        if (routerConfig == null) {
-            throw new MikrotikApiException("Router not found: " + routerName);
-        }
+        Routers routerConfig = routerRepository.findByRouterName(routerName)
+                .orElseThrow(() -> new MikrotikApiException("Router not found"));
 
         try {
             connection = ApiConnection.connect(routerConfig.getRouterIPAddress());
@@ -48,9 +45,9 @@ public class MikrotikClient {
 
 
     public void createHotspotUser(String ipAddress,
-                                  String macAddress, String profile, String uptimeLimit, String routerName)
+                                  String macAddress, String profile, String uptimeLimit, Routers routers)
             throws MikrotikApiException {
-        connectRouter(routerName);
+        connectRouter(routers.getRouterName());
         String command = String.format(
                 "/ip/hotspot/user/add address=%s mac-address=%s profile=%s limit-uptime=%s",
                 ipAddress, macAddress, profile, uptimeLimit
@@ -79,7 +76,6 @@ public class MikrotikClient {
         List<ClientResponse> activeClients = new ArrayList<>();
         for (Map<String, String> clientData : response) {
             ClientResponse activeClient = new ClientResponse();
-            activeClient.setIpAddress(clientData.get("address"));
             activeClient.setUsername(clientData.get("mac-address"));
             activeClients.add(activeClient);
         }
@@ -114,7 +110,6 @@ public class MikrotikClient {
         List<ClientResponse> connectedUsers = new ArrayList<>();
         for (Map<String, String> clientData : response) {
             ClientResponse connectedUser = new ClientResponse();
-            connectedUser.setIpAddress(clientData.get("address"));
             connectedUser.setUsername(clientData.get("mac-address"));
             connectedUsers.add(connectedUser);
         }
@@ -230,9 +225,10 @@ public class MikrotikClient {
         }
     }
 
-    public void deleteUser(String routerName, String username) throws MikrotikApiException {
-        connectRouter(routerName);
+    public void deleteUser(UserSession user) throws MikrotikApiException {
+        connectRouter(user.getRouterName());
         try {
+            String username = user.getUsername();
             String findCommand = "/ip/hotspot/user/print where name=" + username;
             List<Map<String, String>> users = connection.execute(findCommand);
 
@@ -245,12 +241,13 @@ public class MikrotikClient {
             connection.execute(deleteCommand);
 
         } catch (MikrotikApiException e) {
-            throw new MikrotikApiException("Failed to remove hotspot user: " + username, e);
+            throw new MikrotikApiException("Failed to remove hotspot user ");
         }
     }
 
-    public void removeExpiredUser(String routerName, String username) throws MikrotikApiException {
-        connectRouter(routerName);
+    public void removeExpiredUser(UserSession session) throws MikrotikApiException {
+        connectRouter(session.getRouterName());
+        String username = session.getUsername();
         try {
             String findCommand = "/ip/hotspot/user/print where name=" + username;
             List<Map<String, String>> users = connection.execute(findCommand);
@@ -299,7 +296,10 @@ public class MikrotikClient {
         }
     }
 
-    public void createPppoeProfile(PPPoEPlans plan) throws MikrotikApiException {
+
+//PPPOE OPS & MANAGEMENT
+
+    public void createPppoeProfile(Plans plan) throws MikrotikApiException {
         connectRouter(plan.getRouter().getRouterName());
         try {
             String poolName = plan.getIpPool().getPoolName();
@@ -308,7 +308,7 @@ public class MikrotikClient {
             String command = String.format(
                     "/ppp/profile/add name=%s local-address=%s remote-address=%s" +
                             " dns-server=8.8.8.8,8.8.4.4 rate-limit=%s",
-                    plan.getName(), poolName, poolName, rateLimit);
+                    plan.getPlanName(), poolName, poolName, rateLimit);
 
             connection.execute(command);
         } catch (MikrotikApiException e) {
@@ -342,4 +342,94 @@ public class MikrotikClient {
             throw new MikrotikApiException("Failed to create PPPoE client: " + e.getMessage(), e);
         }
     }
+
+    public void editPppoeClient(Clients client) throws MikrotikApiException {
+        connectRouter(client.getRouter().getRouterName());
+        try {
+            var id = findCommand(client);
+
+            String editCommand = String.format("/ppp/secret/set =.id=%s =password=%s", id, client.getPassword());
+            connection.execute(editCommand);
+        } catch (Exception e) {
+            throw new MikrotikApiException("Failed to edit PPPoE client: " + e.getMessage(), e);
+        }
+    }
+
+    private String findCommand(Clients client) throws MikrotikApiException {
+        String findCommand = String.format("/ppp/secret/print where name=%s", client.getUsername());
+        List<Map<String, String>> results = connection.execute(findCommand);
+
+        if (results.isEmpty()) {
+            throw new MikrotikApiException("Client not found: " + client.getUsername());
+        }
+        return results.get(0).get(".id");
+    }
+
+    public void deactivateClient(Clients client) throws MikrotikApiException {
+        connectRouter(client.getRouter().getRouterName());
+        try {
+            var id = findCommand(client);
+
+            String disableCommand = String.format("/ppp/secret/disable =.id=%s", id);
+            connection.execute(disableCommand);
+        } catch (Exception e) {
+            throw new MikrotikApiException("Failed to deactivate PPPoE client: " + e.getMessage(), e);
+        }
+    }
+
+    public void deleteClient(Optional<Clients> client) throws MikrotikApiException {
+        if (client.isPresent()) {
+            connectRouter(client.get().getRouter().getRouterName());
+            try {
+                String findCommand = String.format("/ppp/secret/print where name=%s", client.get().getUsername());
+                List<Map<String, String>> results = connection.execute(findCommand);
+
+                if (results.isEmpty()) {
+                    throw new MikrotikApiException("Client not found: " + client.get().getUsername());
+                }
+                String id = results.get(0).get(".id");
+
+                String removeCommand = String.format("/ppp/secret/remove =.id=%s", id);
+                connection.execute(removeCommand);
+            } catch (Exception e) {
+                throw new MikrotikApiException("Failed to delete PPPoE client: " + e.getMessage(), e);
+            }
+        } else {
+            throw new MikrotikApiException("No client information provided.");
+        }
+    }
+
+    public void reWriteAccount(Clients client) throws MikrotikApiException {
+        connectRouter(client.getRouter().getRouterName());
+        try {
+            var id = findCommand(client);
+            String enableCommand = String.format("/ppp/secret/enable =.id=%s", id);
+            connection.execute(enableCommand);
+
+            String updateCommand = String.format("/ppp/secret/set =.id=%s =password=%s", id, client.getPassword());
+            connection.execute(updateCommand);
+        } catch (Exception e) {
+            throw new MikrotikApiException("Failed to rewrite PPPoE account: " + e.getMessage(), e);
+        }
+    }
+
+    public void disconnectOverdueClients(UserSession session) throws MikrotikApiException {
+        connectRouter(session.getRouterName());
+        try {
+            String findCommand = String.format("/ppp/secret/print where name=%s", session.getUsername());
+            List<Map<String, String>> results = connection.execute(findCommand);
+
+            if (results.isEmpty()) {
+                throw new MikrotikApiException("PPPoE client not found: " + session.getUsername());
+            }
+            String id = results.get(0).get(".id");
+            String disableCommand = String.format("/ppp/secret/disable .id=%s", id);
+            connection.execute(disableCommand);
+
+            System.out.println("Disabled PPPoE client: " + session.getUsername());
+        } catch (Exception e) {
+            throw new MikrotikApiException("Failed to deactivate PPPoE client: " + e.getMessage(), e);
+        }
+    }
+
 }

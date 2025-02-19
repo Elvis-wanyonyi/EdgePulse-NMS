@@ -1,7 +1,5 @@
 package com.wolfcode.MikrotikNetwork.dto;
 
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,11 +17,9 @@ public class ClientResponse{
     private LocalDateTime createdOn;
     private LocalDateTime expiresOn;
     private String plan;
-    private String ipAddress;
+    private ServiceType serviceType;
     private String router;
-    private String mpesaReceiptNumber;
     private String phoneNumber;
     private int amount;
-    @Enumerated(EnumType.STRING)
     private LoginBy loginBy;
 }

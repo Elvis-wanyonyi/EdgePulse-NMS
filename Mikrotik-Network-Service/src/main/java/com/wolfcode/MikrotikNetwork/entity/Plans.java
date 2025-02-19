@@ -1,5 +1,6 @@
 package com.wolfcode.MikrotikNetwork.entity;
 
+import com.wolfcode.MikrotikNetwork.dto.ServiceType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,14 +12,16 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "pppoe_plans")
-public class PPPoEPlans {
+@Table(name = "plans")
+public class Plans {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
     private Long id;
-    private String name;
-    private String planValidity;
+    private String planName;
+    private Integer planValidity;
+    private Integer price;
+    private ServiceType serviceType;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "bandwidth_id")

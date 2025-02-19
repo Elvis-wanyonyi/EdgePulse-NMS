@@ -63,14 +63,8 @@ public class RevenueController {
         return ResponseEntity.ok(hourlyDistribution);
     }
 
-    @GetMapping("/daily-trend")
-    public ResponseEntity<Map<LocalDate, Integer>> getDailyRevenueTrend(
-            @RequestParam("days") int days) {
-        Map<LocalDate, Integer> dailyRevenueTrend = revenueService.getDailyRevenueTrend(days);
-        return ResponseEntity.ok(dailyRevenueTrend);
-    }
 
-    @GetMapping("/by-package")
+    @GetMapping("/plan-reports")
     public ResponseEntity<Map<String, Integer>> getRevenueByPackage() {
         Map<String, Integer> revenueByPackage = revenueService.calculateRevenueByPackage();
         return ResponseEntity.ok(revenueByPackage);

@@ -29,7 +29,7 @@ public class Voucher {
 
     @ManyToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @JoinColumn(name = "plan_id")
-    private HotspotPlans plan;
+    private Plans plan;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "router_id")

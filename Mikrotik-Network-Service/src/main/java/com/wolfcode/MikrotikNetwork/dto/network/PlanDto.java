@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class HotspotPlanDto {
+public class PlanDto {
 
     @NotBlank(message = "Enter router name")
     private Long router;

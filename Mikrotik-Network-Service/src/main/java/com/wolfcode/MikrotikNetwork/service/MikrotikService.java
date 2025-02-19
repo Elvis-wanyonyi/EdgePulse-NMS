@@ -1,13 +1,10 @@
 package com.wolfcode.MikrotikNetwork.service;
 
-import com.wolfcode.MikrotikNetwork.dto.ClientResponse;
-import com.wolfcode.MikrotikNetwork.dto.LoginBy;
-import com.wolfcode.MikrotikNetwork.dto.Status;
-import com.wolfcode.MikrotikNetwork.dto.UserCredentials;
+import com.wolfcode.MikrotikNetwork.dto.*;
 import com.wolfcode.MikrotikNetwork.dto.hotspot.ActiveUsersResponse;
 import com.wolfcode.MikrotikNetwork.dto.hotspot.MpesaCodeRequest;
 import com.wolfcode.MikrotikNetwork.dto.hotspot.RouterClientResponse;
-import com.wolfcode.MikrotikNetwork.dto.network.HotspotPlanDto;
+import com.wolfcode.MikrotikNetwork.dto.network.PlanDto;
 import com.wolfcode.MikrotikNetwork.dto.voucher.*;
 import com.wolfcode.MikrotikNetwork.entity.*;
 import com.wolfcode.MikrotikNetwork.repository.*;
@@ -34,58 +31,58 @@ import java.util.stream.Collectors;
 public class MikrotikService {
 
     private final MikrotikClient mikroTikClient;
-    private final HotspotClientsRepository hotspotClientsRepository;
+    private final ClientsRepository clientsRepository;
     private final VoucherRepository voucherRepository;
     private final RouterRepository routerRepository;
     private final UserSessionRepository userSessionRepository;
-    private final PackageRepository packageRepository;
     private final BandwidthRepository bandwidthRepository;
     public static final String CLIENT_PASSWORD = "12345";
     private final PaymentSessionRepository paymentSessionRepository;
+    private final PlansRepository plansRepository;
 
 
     public void connectUser(String ipAddress, String macAddress, String packageType,
                             String phoneNumber, String mpesaReceiptNumber, String routerName) {
 
-        Optional<HotspotPlans> packagePlans = packageRepository.findByPackageName(packageType);
-        if (packagePlans.isPresent()) {
-            HotspotPlans packagePlan = packagePlans.get();
+        Plans hotspotPlans = plansRepository.findByPlanName(packageType)
+                .orElseThrow(() -> new IllegalArgumentException("Plan not found"));
+        Routers router = routerRepository.findByRouterName(routerName)
+                .orElseThrow(() -> new IllegalArgumentException("Router not found"));
 
-            try {
-                HotspotClients hotspotClients = HotspotClients.builder()
-                        .mpesaReceiptNumber(mpesaReceiptNumber)
-                        .phoneNumber(phoneNumber)
-                        .router(routerName)
-                        .username(macAddress)
-                        .ipAddress(ipAddress)
-                        .plan(packagePlan.getPackageName())
-                        .amount(packagePlan.getPrice())
-                        .createdOn(LocalDateTime.now())
-                        .expiresOn(LocalDateTime.now().plusHours(packagePlan.getPlanValidity()))
-                        .loginBy(LoginBy.PAYMENT)
-                        .build();
-                hotspotClientsRepository.save(hotspotClients);
+        try {
+            Clients hotspotClients = Clients.builder()
+                    .account(macAddress)
+                    .mpesaRef(mpesaReceiptNumber)
+                    .phone(phoneNumber)
+                    .router(router)
+                    .username(macAddress)
+                    .plan(hotspotPlans)
+                    .payment(hotspotPlans.getPrice())
+                    .createdOn(LocalDateTime.now())
+                    .expiresOn(LocalDateTime.now().plusHours(hotspotPlans.getPlanValidity()))
+                    .loginBy(LoginBy.SYSTEM)
+                    .build();
+            clientsRepository.save(hotspotClients);
 
-                String uptimeLimit = convertHoursToUptimeLimit(packagePlan.getPlanValidity());
-                mikroTikClient.createHotspotUser(ipAddress, macAddress,
-                        packagePlan.getPackageName(), uptimeLimit, routerName);
+            String uptimeLimit =
+                    convertHoursToUptimeLimit(Math.toIntExact(hotspotPlans.getPlanValidity()));
 
-                Duration sessionLimit = Duration.ofHours(packagePlan.getPlanValidity());
-                LocalDateTime sessionStartTime = LocalDateTime.now();
-                LocalDateTime sessionEndTime = sessionStartTime.plus(sessionLimit);
-                UserSession userSession = UserSession.builder()
-                        .routerName(routerName)
-                        .username(macAddress)
-                        .sessionStartTime(LocalDateTime.now())
-                        .sessionEndTime(sessionEndTime)
-                        .build();
-                userSessionRepository.save(userSession);
+            mikroTikClient.createHotspotUser(ipAddress, macAddress,
+                    hotspotPlans.getPlanName(), uptimeLimit, router);
 
-            } catch (MikrotikApiException e) {
-                throw new IllegalArgumentException("Failed to connect Client to router");
-            }
-        } else {
-            throw new IllegalArgumentException("Package not found");
+            Duration sessionLimit = Duration.ofHours(hotspotPlans.getPlanValidity());
+            LocalDateTime sessionEndTime = LocalDateTime.now().plus(sessionLimit);
+            UserSession userSession = UserSession.builder()
+                    .routerName(routerName)
+                    .username(macAddress)
+                    .type(ServiceType.HOTSPOT)
+                    .sessionStartTime(LocalDateTime.now())
+                    .sessionEndTime(sessionEndTime)
+                    .build();
+            userSessionRepository.save(userSession);
+
+        } catch (MikrotikApiException e) {
+            throw new IllegalArgumentException("Failed to connect Client to router");
         }
     }
 
@@ -103,101 +100,83 @@ public class MikrotikService {
         paymentSession.setStatus(Status.CONFIRMED);
         paymentSessionRepository.save(paymentSession);
 
-        Routers router = routerRepository.findByRouterName(paymentSession.getRouterName());
-        if (router == null) {
-            throw new IllegalArgumentException("Router not found");
-        }
+        Routers router = routerRepository.findByRouterName(paymentSession.getRouterName())
+                .orElseThrow(() -> new IllegalArgumentException("Router not found"));
 
-        Optional<HotspotPlans> plans = packageRepository.findByPackageName(paymentSession.getPackageType());
-        if (plans.isPresent()) {
-            HotspotPlans packagePlan = plans.get();
-
-            try {
-
-                String macAddress = paymentSession.getMac();
-                String ipAddress = paymentSession.getIp();
-                String routerName = router.getRouterName();
-
-                log.info("User Created: username{} password{} ipAddress{} macAddress{}",
-                        macAddress, CLIENT_PASSWORD, ipAddress, macAddress);
+        Plans plans = plansRepository.findByPlanName(paymentSession.getPackageType())
+                .orElseThrow(() -> new IllegalArgumentException("Plan not found"));
 
 
-                mikroTikClient.createHotspotUser(ipAddress, macAddress,
-                        packagePlan.getPackageName(), convertHoursToUptimeLimit(packagePlan.getPlanValidity()),
-                        routerName);
+        try {
 
-                Duration sessionLimit = Duration.ofHours(packagePlan.getPlanValidity());
-                LocalDateTime sessionStartTime = LocalDateTime.now();
-                LocalDateTime sessionEndTime = sessionStartTime.plus(sessionLimit);
-                UserSession userSession = UserSession.builder()
-                        .routerName(routerName)
-                        .username(macAddress)
-                        .sessionStartTime(LocalDateTime.now())
-                        .sessionEndTime(sessionEndTime)
-                        .build();
-                userSessionRepository.save(userSession);
+            String macAddress = paymentSession.getMac();
+            String ipAddress = paymentSession.getIp();
+            String routerName = router.getRouterName();
 
-                return UserCredentials.builder()
-                        .username(macAddress)
-                        .password(CLIENT_PASSWORD)
-                        .build();
-            } catch (MikrotikApiException e) {
-                throw new IllegalArgumentException("Failed to connect Client to router");
-            }
-        } else {
-            throw new IllegalArgumentException("Package not found");
+            log.info("User Created: username{} password{} ipAddress{} macAddress{}",
+                    macAddress, CLIENT_PASSWORD, ipAddress, macAddress);
+
+            mikroTikClient.createHotspotUser(ipAddress, macAddress,
+                    plans.getPlanName(), convertHoursToUptimeLimit(Math.toIntExact(plans.getPlanValidity())),
+                    router);
+
+            Duration sessionLimit = Duration.ofHours(plans.getPlanValidity());
+            LocalDateTime sessionStartTime = LocalDateTime.now();
+            LocalDateTime sessionEndTime = sessionStartTime.plus(sessionLimit);
+            UserSession userSession = UserSession.builder()
+                    .routerName(routerName)
+                    .username(macAddress)
+                    .sessionStartTime(LocalDateTime.now())
+                    .sessionEndTime(sessionEndTime)
+                    .build();
+            userSessionRepository.save(userSession);
+
+            return UserCredentials.builder()
+                    .username(macAddress)
+                    .password(CLIENT_PASSWORD)
+                    .build();
+        } catch (MikrotikApiException e) {
+            throw new IllegalArgumentException("Failed to connect Client to router");
         }
     }
 
-
-
-
     public void createHotspotVoucher(CreateVouchers voucherRequests) {
 
-        Routers router = routerRepository.findByRouterName(voucherRequests.getRouterName());
-        if (router == null) {
-            throw new IllegalArgumentException("Router not found");
-        }
+        Routers router = routerRepository.findByRouterName(voucherRequests.getRouterName())
+                .orElseThrow(() -> new IllegalArgumentException("Router not found"));
 
-        Optional<HotspotPlans> plansOptional = packageRepository.findByPackageName(voucherRequests.getPlan());
-        if (plansOptional.isPresent()) {
-            HotspotPlans plan = plansOptional.get();
+        Plans plans = plansRepository.findByPlanName(voucherRequests.getPlan())
+                .orElseThrow(() -> new IllegalArgumentException("Plan not found"));
 
-            for (int i = 0; i < voucherRequests.getQuantity(); i++) {
-                String voucherCode =
-                        UUID.randomUUID().toString().substring(voucherRequests.getLength());
+        for (int i = 0; i < voucherRequests.getQuantity(); i++) {
+            String voucherCode =
+                    UUID.randomUUID().toString().substring(voucherRequests.getLength());
 
-                Voucher voucher = Voucher.builder()
-                        .voucherCode(voucherCode)
-                        .plan(plan)
-                        .createdAt(LocalDateTime.now())
-                        .status(VoucherStatus.ACTIVE)
-                        .redeemedBy(null)
-                        .ipAddress(null)
-                        .router(router)
-                        .build();
-                voucherRepository.save(voucher);
-            }
-        } else {
-            throw new IllegalArgumentException("Package not found");
+            Voucher voucher = Voucher.builder()
+                    .voucherCode(voucherCode)
+                    .plan(plans)
+                    .createdAt(LocalDateTime.now())
+                    .status(VoucherStatus.ACTIVE)
+                    .redeemedBy(null)
+                    .ipAddress(null)
+                    .router(router)
+                    .build();
+            voucherRepository.save(voucher);
         }
     }
 
     public Map<String, String> loginWithMpesaCode(MpesaCodeRequest mpesaCodeRequest) {
 
-        HotspotClients hotspotClients = hotspotClientsRepository.findByMpesaReceiptNumberIgnoreCase(mpesaCodeRequest.getCode());
-        if (hotspotClients == null) {
+        Clients client = clientsRepository.findByMpesaRefIgnoreCase(mpesaCodeRequest.getCode());
+        if (client == null) {
             throw new IllegalArgumentException("Code not found contact admin:");
-        } else if (!hotspotClients.getUsername().equals(mpesaCodeRequest.getMacAddress())) {
+        } else if (!client.getUsername().equals(mpesaCodeRequest.getMacAddress())) {
             throw new IllegalArgumentException("MAC not found contact admin:");
         }
-
-        String username = hotspotClients.getUsername();
-
+        String username = client.getUsername();
         Map<String, String> response = new HashMap<>();
         response.put("username", username);
         response.put("password", null);
-
         return response;
     }
 
@@ -207,7 +186,7 @@ public class MikrotikService {
             throw new IllegalArgumentException("Voucher not found or expired, contact admin: ");
         }
 
-        HotspotClients user = hotspotClientsRepository.findUserByUsername(redeemVoucher.getVoucherCode());
+        Clients user = clientsRepository.findUserByUsername(redeemVoucher.getVoucherCode());
         if (user != null && user.getUsername().equals(redeemVoucher.getMacAddress())) {
             String code = redeemVoucher.getVoucherCode();
             Map<String, String> response = new HashMap<>();
@@ -217,44 +196,41 @@ public class MikrotikService {
             return response;
         }
 
-        Optional<HotspotPlans> plans = packageRepository.findByPackageName(voucher.getPlan().getPackageName());
-        if (plans.isEmpty()) {
-            throw new IllegalArgumentException("Package not found");
-        }
-        HotspotPlans hotspotPlans = plans.get();
-
+        Plans plans = plansRepository.findByPlanName(voucher.getPlan().getPlanName())
+                .orElseThrow(() -> new IllegalArgumentException("Plan not found"));
 
         voucher.setRedeemedBy(redeemVoucher.getMacAddress());
         voucher.setIpAddress(redeemVoucher.getIpAddress());
         voucher.setStatus(VoucherStatus.USED);
-        voucher.setExpiryDate(LocalDateTime.now().plusHours(hotspotPlans.getPlanValidity()));
+        voucher.setExpiryDate(LocalDateTime.now().plusHours(plans.getPlanValidity()));
         voucherRepository.save(voucher);
 
-        String profile = hotspotPlans.getPackageName();
-        String uptimeLimit = convertHoursToUptimeLimit(hotspotPlans.getPlanValidity());
+        String profile = plans.getPlanName();
+        String uptimeLimit = convertHoursToUptimeLimit(Math.toIntExact(plans.getPlanValidity()));
 
         mikroTikClient.redeemVoucher(redeemVoucher.getVoucherCode(), redeemVoucher.getIpAddress(),
                 redeemVoucher.getMacAddress(), profile, uptimeLimit, voucher.getRouter().getRouterName());
 
         UserSession userSession = UserSession.builder()
                 .routerName(voucher.getRouter().getRouterName())
-                .macAddress(redeemVoucher.getMacAddress())
                 .username(voucher.getVoucherCode())
                 .sessionStartTime(LocalDateTime.now())
-                .sessionEndTime(LocalDateTime.now().plusHours(hotspotPlans.getPlanValidity()))
+                .sessionEndTime(LocalDateTime.now().plusHours(plans.getPlanValidity()))
                 .build();
         userSessionRepository.save(userSession);
 
-        HotspotClients hotspotClients = HotspotClients.builder()
+        Clients hotspotClients = Clients.builder()
+                .account(redeemVoucher.getMacAddress())
                 .username(redeemVoucher.getMacAddress())
-                .ipAddress(redeemVoucher.getIpAddress())
-                .plan(voucher.getPlan().getPackageName())
+                .plan(voucher.getPlan())
+                .type(ServiceType.HOTSPOT)
                 .loginBy(LoginBy.VOUCHER)
+                .balance(0)
                 .createdOn(LocalDateTime.now())
                 .expiresOn(null)
-                .amount(hotspotPlans.getPrice())
+                .payment(plans.getPrice())
                 .build();
-        hotspotClientsRepository.save(hotspotClients);
+        clientsRepository.save(hotspotClients);
 
         String voucherCode = voucher.getVoucherCode();
         Map<String, String> response = new HashMap<>();
@@ -266,23 +242,21 @@ public class MikrotikService {
 
     public Page<ClientResponse> getAllClients(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createTime").descending());
-        Page<HotspotClients> userPage = hotspotClientsRepository.findAll(pageable);
+        Page<Clients> userPage = clientsRepository.findAll(pageable);
 
         return userPage.map(this::convertToClientResponse);
     }
 
-    private ClientResponse convertToClientResponse(HotspotClients hotspotClients) {
+    private ClientResponse convertToClientResponse(Clients hotspotClients) {
         return ClientResponse.builder()
                 .username(hotspotClients.getUsername())
-                .phoneNumber(hotspotClients.getPhoneNumber())
-                .mpesaReceiptNumber(hotspotClients.getMpesaReceiptNumber())
-                .ipAddress(hotspotClients.getIpAddress())
+                .phoneNumber(hotspotClients.getPhone())
                 .createdOn(hotspotClients.getCreatedOn())
                 .expiresOn(hotspotClients.getExpiresOn())
-                .plan(hotspotClients.getPlan())
-                .amount(hotspotClients.getAmount())
+                .plan(hotspotClients.getPlan().getPlanName())
+                .amount(hotspotClients.getPlan().getPrice())
                 .loginBy(hotspotClients.getLoginBy())
-                .router(hotspotClients.getRouter())
+                .router(hotspotClients.getRouter().getRouterName())
                 .build();
     }
 
@@ -342,78 +316,72 @@ public class MikrotikService {
 
     public VoucherResponse editVoucher(String voucherCode, UpdateVoucher updateVoucher) {
         Voucher voucher = voucherRepository.findByVoucherCodeIgnoreCase(voucherCode);
-        Optional<HotspotPlans> plans = packageRepository.findByPackageName(updateVoucher.getPackageType());
-        if (plans.isEmpty()) {
-            throw new IllegalArgumentException("Package not found : " + updateVoucher.getPackageType());
-        }
-        HotspotPlans plan = plans.get();
+        Plans plans = plansRepository.findByPlanName(updateVoucher.getPackageType())
+                .orElseThrow(() -> new IllegalArgumentException("plan does not exist"));
 
-        if (voucher != null) {
-            voucher.setPlan(plan);
-            voucher.setStatus(updateVoucher.getStatus());
-            voucher.setRedeemedBy(updateVoucher.getRedeemedBy());
-            voucherRepository.save(voucher);
+        voucher.setPlan(plans);
+        voucher.setStatus(updateVoucher.getStatus());
+        voucher.setRedeemedBy(updateVoucher.getRedeemedBy());
+        voucherRepository.save(voucher);
 
-            return VoucherResponse.builder()
-                    .voucherCode(voucherCode)
-                    .redeemedBy(voucher.getRedeemedBy())
-                    .packageType(voucher.getRedeemedBy())
-                    .status(voucher.getStatus())
-                    .createdAt(voucher.getCreatedAt())
-                    .build();
-        } else {
-            throw new IllegalArgumentException("Voucher not found : " + voucherCode);
-        }
-
+        return VoucherResponse.builder()
+                .voucherCode(voucherCode)
+                .redeemedBy(voucher.getRedeemedBy())
+                .packageType(voucher.getRedeemedBy())
+                .status(voucher.getStatus())
+                .createdAt(voucher.getCreatedAt())
+                .build();
     }
 
+    public void deleteHotspotClient(Long id) throws MikrotikApiException {
+        UserSession user = userSessionRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Hotspot client not found : " + id));
 
-    public void deleteUser(String routerName, String username) throws MikrotikApiException {
-        userSessionRepository.deleteByUsername(username);
-
-        mikroTikClient.deleteUser(routerName, username);
+        mikroTikClient.deleteUser(user);
     }
 
-    @Scheduled(fixedRate = 60 * 2000)
+    @Scheduled(cron = "0 */3 * * * *")
     public void removeExpiredUsers() {
         System.out.println("Checking for Expired Users");
         List<UserSession> expiredSessions = userSessionRepository.findExpiredSessions(LocalDateTime.now());
 
         for (UserSession session : expiredSessions) {
             try {
-                mikroTikClient.removeExpiredUser(session.getRouterName(), session.getUsername());
+                if ("hotspot".equalsIgnoreCase(session.getType().toString())) {
+                    mikroTikClient.removeExpiredUser(session);
+                    System.out.println("Removed expired Hotspot user: " + session.getUsername());
+                } else if ("pppoe".equalsIgnoreCase(session.getType().toString())) {
+                    mikroTikClient.disconnectOverdueClients(session);
+                    System.out.println("Disconnected expired PPPoE user: " + session.getUsername());
+                }
 
-                System.out.println("removed expired user: " + session.getUsername());
                 userSessionRepository.delete(session);
             } catch (MikrotikApiException e) {
-                System.err.println("Error removing expired user: " + session.getUsername());
+                System.err.println("Error handling expired user: " + session.getUsername());
             }
         }
     }
 
 
-    public void createHotspotPlan(@Valid HotspotPlanDto hotspotPlanDto) {
-        Routers router = routerRepository.findById(hotspotPlanDto.getRouter())
-                .orElseThrow(()-> new IllegalArgumentException("Router not found : " + hotspotPlanDto.getRouter()));
+    public void createHotspotPlan(@Valid PlanDto planDto) {
+        Routers router = routerRepository.findById(planDto.getRouter())
+                .orElseThrow(() -> new IllegalArgumentException("Router not found : " + planDto.getRouter()));
 
-        BandwidthLimits bandwidth = bandwidthRepository.findById(hotspotPlanDto.getBandwidthLimit())
-                .orElseThrow(()-> new IllegalArgumentException("Bandwidth not found : "));
+        BandwidthLimits bandwidth = bandwidthRepository.findById(planDto.getBandwidthLimit())
+                .orElseThrow(() -> new IllegalArgumentException("Bandwidth not found : "));
 
-            HotspotPlans plans = HotspotPlans.builder()
-                    .router(router)
-                    .packageName(hotspotPlanDto.getPackageName())
-                    .bandwidthLimit(bandwidth)
-                    .planValidity(hotspotPlanDto.getPlanValidity())
-                    .planDuration(hotspotPlanDto.getPlanDuration())
-                    .price(hotspotPlanDto.getPrice())
-                    .dataLimit(hotspotPlanDto.getDataLimit())
-                    .build();
-            packageRepository.save(plans);
-
+        Plans plans = Plans.builder()
+                .router(router)
+                .planName(planDto.getPackageName())
+                .bandwidthLimit(bandwidth)
+                .planValidity(planDto.getPlanValidity())
+                .price(planDto.getPrice())
+                .build();
+        plansRepository.save(plans);
     }
 
-    public List<HotspotPlanDto> getHotspotPlans() {
-        List<HotspotPlans> hotspotPlans = packageRepository.findAll();
+    public List<PlanDto> getHotspotPlans() {
+        List<Plans> hotspotPlans = plansRepository.findAllByServiceType(ServiceType.HOTSPOT);
         return Optional.of(hotspotPlans)
                 .orElse(Collections.emptyList())
                 .stream()
@@ -421,34 +389,31 @@ public class MikrotikService {
                 .collect(Collectors.toList());
     }
 
-    private HotspotPlanDto mapToPackagePlanDto(HotspotPlans plans) {
-        return HotspotPlanDto.builder()
-                .packageName(plans.getPackageName())
+    private PlanDto mapToPackagePlanDto(Plans plans) {
+        return PlanDto.builder()
+                .packageName(plans.getPlanName())
                 .bandwidthLimit(plans.getBandwidthLimit().getId())
                 .planValidity(plans.getPlanValidity())
-                .planDuration(plans.getPlanDuration())
-                .dataLimit(plans.getDataLimit())
+                /* .planDuration(plans.getPlanDuration())
+                 .dataLimit(plans.getDataLimit())*/
                 .price(plans.getPrice())
                 .router(plans.getRouter().getId())
                 .build();
     }
 
-    public void editHotspotPlan(Long id, @Valid HotspotPlanDto hotspotPlanDto) {
-        Optional<HotspotPlans> plans = packageRepository.findById(id);
+    public void editHotspotPlan(Long id, @Valid PlanDto planDto) {
+        Plans plans = plansRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Plan not found : " + id));
 
-        if (plans.isPresent()) {
-            HotspotPlans hotspotPlans = plans.get();
-            hotspotPlans.setPackageName(hotspotPlanDto.getPackageName());
-            packageRepository.save(hotspotPlans);
-
-        } else {
-            throw new IllegalArgumentException("Package not found : " + id);
-        }
+        plans.setPlanName(planDto.getPackageName());
+        plans.setPlanName(planDto.getPackageName());
+        plans.setPlanValidity(planDto.getPlanValidity());
+        plans.setPrice(planDto.getPrice());
+        plansRepository.save(plans);
     }
 
     public void deleteHotspotPlan(Long id) {
-        packageRepository.deleteById(id);
-
+        plansRepository.deleteById(id);
     }
 
 }

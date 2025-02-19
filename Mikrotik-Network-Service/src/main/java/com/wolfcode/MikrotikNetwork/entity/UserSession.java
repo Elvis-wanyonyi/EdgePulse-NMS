@@ -1,5 +1,6 @@
 package com.wolfcode.MikrotikNetwork.entity;
 
+import com.wolfcode.MikrotikNetwork.dto.ServiceType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,9 +20,10 @@ public class UserSession {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String macAddress;
     private String username;
     private String routerName;
+    @Enumerated(EnumType.STRING)
+    private ServiceType type;
     private LocalDateTime sessionEndTime;
     private LocalDateTime sessionStartTime;
 

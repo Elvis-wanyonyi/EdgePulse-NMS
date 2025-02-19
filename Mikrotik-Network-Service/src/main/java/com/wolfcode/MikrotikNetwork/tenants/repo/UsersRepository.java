@@ -1,6 +1,6 @@
 package com.wolfcode.MikrotikNetwork.tenants.repo;
 
-import com.wolfcode.MikrotikNetwork.tenants.domain.Users;
+import com.wolfcode.MikrotikNetwork.tenants.entity.Users;
 import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

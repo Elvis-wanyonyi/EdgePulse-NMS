@@ -1,4 +1,4 @@
-package com.wolfcode.MikrotikNetwork.tenants.domain;
+package com.wolfcode.MikrotikNetwork.tenants.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

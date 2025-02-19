@@ -1,6 +1,6 @@
 package com.wolfcode.MikrotikNetwork.service;
 
-import com.wolfcode.MikrotikNetwork.repository.HotspotClientsRepository;
+import com.wolfcode.MikrotikNetwork.repository.ClientsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -12,48 +12,41 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class RevenueService {
 
-    private final HotspotClientsRepository hotspotClientsRepository;
+    private final ClientsRepository clientsRepository;
 
 
     public int calculateAllRevenue() {
-        return hotspotClientsRepository.sumAllRevenue();
+        return clientsRepository.sumAllRevenue();
     }
 
     public int calculateTodayRevenue() {
         LocalDateTime todayStart = LocalDate.now().atStartOfDay();
         LocalDateTime todayEnd = todayStart.plusDays(1);
-        return hotspotClientsRepository.sumRevenueBetween(todayStart, todayEnd);
+        return clientsRepository.sumRevenueBetween(todayStart, todayEnd);
     }
 
     public int calculateThisMonthRevenue() {
         LocalDateTime monthStart = LocalDate.now().withDayOfMonth(1).atStartOfDay();
         LocalDateTime monthEnd = monthStart.plusMonths(1);
-        return hotspotClientsRepository.sumRevenueBetween(monthStart, monthEnd);
+        return clientsRepository.sumRevenueBetween(monthStart, monthEnd);
     }
 
     public int calculateCustomRevenue(LocalDateTime start, LocalDateTime end) {
-        return hotspotClientsRepository.sumRevenueBetween(start, end);
+        return clientsRepository.sumRevenueBetween(start, end);
     }
 
     public int calculateRevenueByRouter(String router) {
-        return hotspotClientsRepository.sumRevenueByRouter(router);
+        return clientsRepository.sumRevenueByRouter(router);
     }
 
     public Map<String, Integer> calculateRevenueByPackage() {
-        return hotspotClientsRepository.sumRevenueByPackageType();
-    }
-
-
-    public Map<LocalDate, Integer> getDailyRevenueTrend(int days) {
-        LocalDateTime startDate = LocalDateTime.now().minusDays(days);
-        return hotspotClientsRepository.findDailyRevenueTrend(startDate);
+        return clientsRepository.sumRevenueByPackageType();
     }
 
     public Map<Integer, Integer> getHourlyRevenueDistribution(LocalDate date) {
         LocalDateTime start = date.atStartOfDay();
         LocalDateTime end = start.plusDays(1);
-        return hotspotClientsRepository.findHourlyRevenueDistribution(start, end);
+        return clientsRepository.findHourlyRevenueDistribution(start, end);
     }
-
 
 }

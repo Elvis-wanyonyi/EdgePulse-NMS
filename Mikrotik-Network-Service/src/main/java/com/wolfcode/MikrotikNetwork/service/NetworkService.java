@@ -37,17 +37,14 @@ public class NetworkService {
     }
 
     public void updateRouter(String routerName, RouterRequest routerRequest) {
-        Routers router = routerRepository.findByRouterName(routerName);
-        if (router != null) {
+        Routers router = routerRepository.findByRouterName(routerName)
+                .orElseThrow(()-> new IllegalArgumentException("Router not found"));
             router.setRouterName(routerRequest.getRouterName());
             router.setRouterIPAddress(routerRequest.getRouterIPAddress());
             router.setUsername(routerRequest.getUsername());
             router.setPassword(routerRequest.getPassword());
             router.setDescription(routerRequest.getDescription());
             routerRepository.save(router);
-        } else {
-            throw new IllegalArgumentException("Router not found : " + routerName);
-        }
     }
 
     public void deleteRouter(String routerName) {

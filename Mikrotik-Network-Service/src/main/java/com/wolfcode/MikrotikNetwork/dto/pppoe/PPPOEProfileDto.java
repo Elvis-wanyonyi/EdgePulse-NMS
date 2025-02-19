@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 public class PPPOEProfileDto {
 
     private String name;
-    private String planValidity;
+    private Integer planValidity;
     @NotNull(message = "Enter bandwidth Limit")
     private Long bandwidthLimit;
     @NotNull(message = "Choose an ip pool")
