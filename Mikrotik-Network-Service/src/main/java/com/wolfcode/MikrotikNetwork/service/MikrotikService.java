@@ -394,8 +394,6 @@ public class MikrotikService {
                 .packageName(plans.getPlanName())
                 .bandwidthLimit(plans.getBandwidthLimit().getId())
                 .planValidity(plans.getPlanValidity())
-                /* .planDuration(plans.getPlanDuration())
-                 .dataLimit(plans.getDataLimit())*/
                 .price(plans.getPrice())
                 .router(plans.getRouter().getId())
                 .build();

@@ -1,5 +1,6 @@
 package com.wolfcode.MikrotikNetwork.tenants.controller;
 
+import com.wolfcode.MikrotikNetwork.dto.payment.MpesaPaymentGateway;
 import com.wolfcode.MikrotikNetwork.schema.TenantSchema;
 import com.wolfcode.MikrotikNetwork.tenants.dto.TenantRequest;
 import com.wolfcode.MikrotikNetwork.tenants.dto.TenantsResponse;
@@ -42,6 +43,26 @@ public class TenantsController {
     public ResponseEntity<String> deleteTenant(@PathVariable String name) {
         tenantService.removeTenant(name);
         return ResponseEntity.ok("Tenant deleted successfully!");
+    }
+
+    @PostMapping("/add-payment-details/{tenant}")
+    public String addMpesaPaymentGatewayDetails(@RequestBody @Valid MpesaPaymentGateway mpesaGateway,
+                                                @PathVariable String tenant) {
+        tenantService.addMpesaPaymentGatewayDetails(mpesaGateway, tenant);
+        return tenant + "Payment details added successfully";
+    }
+
+    @PutMapping("/edit-payment-details/{id}")
+    public String editMpesaPaymentGatewayDetails(@RequestBody @Valid MpesaPaymentGateway mpesaGateway,
+                                                 @PathVariable Long id) {
+        tenantService.editMpesaPaymentGatewayDetails(mpesaGateway, id);
+        return "Payment details updated successfully";
+    }
+
+    @DeleteMapping("/delete-payment-details/{id}")
+    public String deleteMpesaPaymentGatewayDetails(@PathVariable Long id){
+        tenantService.deleteMpesaPaymentGatewayDetails(id);
+        return "Payment details deleted successfully";
     }
 
 }
