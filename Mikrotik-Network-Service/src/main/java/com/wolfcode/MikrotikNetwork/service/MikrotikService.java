@@ -1,8 +1,7 @@
 package com.wolfcode.MikrotikNetwork.service;
 
 import com.wolfcode.MikrotikNetwork.dto.*;
-import com.wolfcode.MikrotikNetwork.dto.hotspot.ActiveUsersResponse;
-import com.wolfcode.MikrotikNetwork.dto.hotspot.MpesaCodeRequest;
+import com.wolfcode.MikrotikNetwork.dto.hotspot.*;
 import com.wolfcode.MikrotikNetwork.dto.network.PlanDto;
 import com.wolfcode.MikrotikNetwork.dto.voucher.*;
 import com.wolfcode.MikrotikNetwork.entity.*;
@@ -18,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -37,7 +37,6 @@ public class MikrotikService {
     private final PaymentSessionRepository paymentSessionRepository;
     private final PlansRepository plansRepository;
     private final SimpMessagingTemplate messagingTemplate;
-
 
 
     public void connectUser(String ipAddress, String macAddress, String packageType,
@@ -260,8 +259,8 @@ public class MikrotikService {
                 .build();
     }
 
-    public int getTotalActiveClients(String routerName) throws MikrotikApiException {
-        List<ClientResponse> activeClients = mikroTikClient.getTotalActiveClients(routerName);
+    public int getTotalActiveClients() throws MikrotikApiException {
+        List<ClientResponse> activeClients = mikroTikClient.getTotalActiveClients();
 
         return activeClients.size();
     }
@@ -275,9 +274,27 @@ public class MikrotikService {
         return connectedUsers.size();
     }
 
-    public List<ActiveUsersResponse> getConnectedUsers(String routerName) throws MikrotikApiException {
-        return null;
+    public List<ClientResponse> getConnectedUsers(String routerName) {
+        List<Clients> clients = clientsRepository.findAllByTypeAndExpiresOnAfter(ServiceType.HOTSPOT, LocalDateTime.now());
+
+        return clients.stream().map(this::mapToActiveClients).toList();
     }
+
+    private ClientResponse mapToActiveClients(Clients clients) {
+        return ClientResponse.builder()
+                .username(clients.getUsername())
+                .phone(clients.getPhone())
+                .mpesaRef(clients.getMpesaRef())
+                .plan(clients.getPlan().getPlanName())
+                .createdOn(clients.getCreatedOn())
+                .expiresOn(clients.getExpiresOn())
+                .type(ServiceType.HOTSPOT.toString())
+                .loginBy(clients.getLoginBy().toString())
+                .status(clients.getStatus().toString())
+                .router(clients.getRouter().getRouterName())
+                .build();
+    }
+
 
     public Map<String, String> getRouterHealth(String routerName) throws MikrotikApiException {
         return mikroTikClient.getRouterHealth(routerName);
@@ -431,13 +448,57 @@ public class MikrotikService {
 
     public Map<String, Object> getRouterResources(String routerName) throws MikrotikApiException {
         Routers router = routerRepository.findByRouterName(routerName)
-                .orElseThrow(()-> new IllegalArgumentException("Router not found : " + routerName));
+                .orElseThrow(() -> new IllegalArgumentException("Router not found : " + routerName));
         return mikroTikClient.getRouterResources(router.getRouterName());
     }
 
     public Map<String, Object> getRouterIpAddresses(String routerName) throws MikrotikApiException {
         Routers router = routerRepository.findByRouterName(routerName)
-                .orElseThrow(()-> new IllegalArgumentException("Router not found : " + routerName));
+                .orElseThrow(() -> new IllegalArgumentException("Router not found : " + routerName));
         return mikroTikClient.getRouterIpAddresses(router.getRouterName());
     }
+
+    public ClientDetailsResponse getClientByUsername(String username) {
+        Clients client = clientsRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("Client not found : " + username));
+
+        return ClientDetailsResponse.builder()
+                .username(client.getUsername())
+                .phone(client.getPhone())
+                .createdOn(client.getCreatedOn())
+                .expiresOn(client.getExpiresOn())
+                .mpesaRef(client.getMpesaRef())
+                .plan(client.getPlan().getPlanName())
+                .router(client.getRouter().getRouterName())
+                .type(client.getType().toString())
+                .loginBy(client.getLoginBy().toString())
+                .status(client.getStatus().toString())
+                .build();
+    }
+
+    public List<ClientLogs> getClientLogs(String username) throws MikrotikApiException {
+        Clients client = clientsRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("Client not found : " + username));
+
+        return mikroTikClient.getHotspotClientLogs(client);
+    }
+
+    public List<Invoices> getClientInvoices(String username) {
+        List<Clients> clients = clientsRepository.findAllByUsername(username);
+
+        return clients.stream().map(client -> new Invoices(
+                generateInvoiceNumber(client),
+                client.getPayment(),
+                client.getPlan().getPlanName(),
+                client.getCreatedOn(),
+                client.getExpiresOn(),
+                client.getLoginBy()
+        )).toList();
+    }
+
+    private String generateInvoiceNumber(Clients client) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmm");
+        return String.format("INV-%s", client.getCreatedOn().format(formatter));
+    }
+
 }

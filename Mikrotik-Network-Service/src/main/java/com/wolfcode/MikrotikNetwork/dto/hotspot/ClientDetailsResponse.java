@@ -1,8 +1,5 @@
 package com.wolfcode.MikrotikNetwork.dto.hotspot;
 
-import com.wolfcode.MikrotikNetwork.dto.ClientStatus;
-import com.wolfcode.MikrotikNetwork.dto.LoginBy;
-import com.wolfcode.MikrotikNetwork.dto.ServiceType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,21 +7,29 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class ActiveUsersResponse {
 
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class ClientDetailsResponse {
+
+    private String account;
+    private String fullName;
+    private String email;
+    private String address;
     private String phone;
+    private Integer payment;
+    private Integer balance;
     private String mpesaRef;
     private String username;
-    private ServiceType type;
+    private String  type;
     private LocalDateTime createdOn;
     private LocalDateTime expiresOn;
-    private LoginBy loginBy;
+    private String dataUsage;
+    private String loginBy;
+    private String status;
     private String plan;
-    private ClientStatus status;
     private String router;
 
 }

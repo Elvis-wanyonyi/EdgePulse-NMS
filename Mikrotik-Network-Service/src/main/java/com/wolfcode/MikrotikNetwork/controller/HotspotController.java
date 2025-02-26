@@ -2,7 +2,9 @@ package com.wolfcode.MikrotikNetwork.controller;
 
 import com.wolfcode.MikrotikNetwork.dto.ClientResponse;
 import com.wolfcode.MikrotikNetwork.dto.hotspot.ActiveUsersResponse;
-import com.wolfcode.MikrotikNetwork.dto.hotspot.RouterClientResponse;
+import com.wolfcode.MikrotikNetwork.dto.hotspot.ClientDetailsResponse;
+import com.wolfcode.MikrotikNetwork.dto.hotspot.ClientLogs;
+import com.wolfcode.MikrotikNetwork.dto.hotspot.Invoices;
 import com.wolfcode.MikrotikNetwork.dto.network.PlanDto;
 import com.wolfcode.MikrotikNetwork.dto.voucher.CreateVouchers;
 import com.wolfcode.MikrotikNetwork.dto.voucher.RedeemVoucher;
@@ -97,9 +99,9 @@ public class HotspotController {
         return mikrotikService.getAllClients();
     }
 
-    @GetMapping("/totalActive-users/{routerName}")
-    public int getTotalActiveClients(@PathVariable String routerName) throws MikrotikApiException {
-        return mikrotikService.getTotalActiveClients(routerName);
+    @GetMapping("/totalActive-users")
+    public int getTotalActiveClients() throws MikrotikApiException {
+        return mikrotikService.getTotalActiveClients();
     }
 
     @GetMapping("/active-clients/{routerName}")
@@ -113,9 +115,29 @@ public class HotspotController {
     }
 
     @GetMapping("/connected/{routerName}")
-    public List<ActiveUsersResponse> getConnectedUsers(@PathVariable String routerName) throws MikrotikApiException {
+    public List<ClientResponse> getConnectedUsers(@PathVariable String routerName) throws MikrotikApiException {
         return mikrotikService.getConnectedUsers(routerName);
     }
 
+    @GetMapping("/client/{username}")
+    public ClientDetailsResponse getClientByUsername(@PathVariable String username) throws MikrotikApiException {
+        return mikrotikService.getClientByUsername(username);
+    }
 
+    @GetMapping("/logs/{username}")
+    public ResponseEntity<List<ClientLogs>> getClientLogs(@PathVariable("username") String username) throws MikrotikApiException {
+        List<ClientLogs> logs = mikrotikService.getClientLogs(username);
+        return ResponseEntity.ok(logs);
+    }
+
+    @GetMapping("/invoices/{username}")
+    public ResponseEntity<List<Invoices>> getClientInvoices(@PathVariable("username") String username) {
+        try {
+            List<Invoices> invoices = mikrotikService.getClientInvoices(username);
+            return ResponseEntity.ok(invoices);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(null);
+        }
+    }
 }

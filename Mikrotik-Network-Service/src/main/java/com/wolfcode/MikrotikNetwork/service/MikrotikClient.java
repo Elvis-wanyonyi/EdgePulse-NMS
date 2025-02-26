@@ -4,7 +4,7 @@ package com.wolfcode.MikrotikNetwork.service;
 import com.wolfcode.MikrotikNetwork.dto.ClientResponse;
 import com.wolfcode.MikrotikNetwork.dto.ClientStatus;
 import com.wolfcode.MikrotikNetwork.dto.hotspot.ActiveUsersResponse;
-import com.wolfcode.MikrotikNetwork.dto.hotspot.RouterClientResponse;
+import com.wolfcode.MikrotikNetwork.dto.hotspot.ClientLogs;
 import com.wolfcode.MikrotikNetwork.dto.network.IPPoolDto;
 import com.wolfcode.MikrotikNetwork.dto.pppoe.PPPoEClientDto;
 import com.wolfcode.MikrotikNetwork.entity.Clients;
@@ -18,6 +18,7 @@ import me.legrange.mikrotik.MikrotikApiException;
 import me.legrange.mikrotik.ResultListener;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
@@ -46,6 +47,23 @@ public class MikrotikClient {
         }
     }
 
+    public Map<String, ApiConnection> connectAllRouters() {
+        List<Routers> routers = routerRepository.findAll();
+        Map<String, ApiConnection> connections = new HashMap<>();
+
+        for (Routers router : routers) {
+            try {
+                ApiConnection conn = ApiConnection.connect(router.getRouterIPAddress());
+                conn.login(router.getUsername(), router.getPassword());
+                connections.put(router.getRouterName(), conn);
+            } catch (MikrotikApiException e) {
+                System.err.println("Failed to connect to router: " + router.getRouterName() + " - " + e.getMessage());
+            }
+        }
+        return connections;
+    }
+
+
 
     public void createHotspotUser(String ipAddress,
                                   String macAddress, String profile, String uptimeLimit, Routers routers)
@@ -71,8 +89,8 @@ public class MikrotikClient {
         connection.execute(command);
     }
 
-    public List<ClientResponse> getTotalActiveClients(String routerName) throws MikrotikApiException {
-        connectRouter(routerName);
+    public List<ClientResponse> getTotalActiveClients() throws MikrotikApiException {
+        connectAllRouters();
         String command = "/ip/hotspot/active/print";
         List<Map<String, String>> response = connection.execute(command);
 
@@ -446,7 +464,36 @@ public class MikrotikClient {
 
     public Map<String, Object> getRouterIpAddresses(String routerName) throws MikrotikApiException {
         connectRouter(routerName);
-        //command to fetch ip addresses
-        return null;
+
+        String command = "/ip/address/print";
+        List<Map<String, String>> result = connection.execute(command);
+
+        Map<String, Object> ipAddressesByInterface = new HashMap<>();
+        for (Map<String, String> record : result) {
+            String iface = record.get("interface");
+            String address = record.get("address");
+
+            if (iface != null && address != null) {
+                @SuppressWarnings("unchecked") List<String> addresses = (List<String>) ipAddressesByInterface.computeIfAbsent(iface,
+                        k -> new ArrayList<>());
+                addresses.add(address);
+            }
+        }
+        return ipAddressesByInterface;
+    }
+
+    public List<ClientLogs> getHotspotClientLogs(Clients client) throws MikrotikApiException {
+        String router = client.getRouter().getRouterName();
+        connectRouter(router);
+
+        String command = String.format("/log/print where message~\"%s\"", client.getUsername());
+        List<Map<String, String>> logs = connection.execute(command);
+
+        return logs.stream().map(log -> new ClientLogs(
+                LocalDate.parse(log.get("time")),
+                log.get("topics"),
+                log.get("message"),
+                router
+        )).toList();
     }
 }

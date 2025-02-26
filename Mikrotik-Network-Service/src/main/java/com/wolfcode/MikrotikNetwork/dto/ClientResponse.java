@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.LocalDateTime;
 
@@ -22,6 +21,7 @@ public class ClientResponse{
     private String phone;
     private Integer payment;
     private Integer balance;
+    private String mpesaRef;
     private String username;
     private String  type;
     private LocalDateTime createdOn;

@@ -46,4 +46,10 @@ public interface ClientsRepository extends JpaRepository<Clients,Long> {
     Map<String, Integer> sumRevenueByPackageType();
 
     List<Clients> findAllByType(ServiceType serviceType);
+
+    List<Clients> findAllByTypeAndExpiresOnAfter(ServiceType serviceType, LocalDateTime now);
+
+    @Query("SELECT c FROM Clients c WHERE c.username = :username")
+    List<Clients> findAllByUsername(@Param("username") String username);
+
 }
