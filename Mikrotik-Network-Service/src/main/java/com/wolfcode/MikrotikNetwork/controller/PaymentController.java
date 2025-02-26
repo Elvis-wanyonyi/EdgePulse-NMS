@@ -10,6 +10,7 @@ import com.wolfcode.MikrotikNetwork.repository.PaymentSessionRepository;
 import com.wolfcode.MikrotikNetwork.repository.TransactionRepository;
 import com.wolfcode.MikrotikNetwork.service.DarajaService;
 import com.wolfcode.MikrotikNetwork.service.MikrotikService;
+import com.wolfcode.MikrotikNetwork.tenants.dto.ShortCodeType;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -144,6 +145,10 @@ public class PaymentController {
             mikrotikService.connectUser(paymentSession.getIp(), paymentSession.getMac(),
                     paymentSession.getPackageType(), paymentSession.getRouterName(),
                     phoneNumber, mpesaReceiptNumber);
+
+            if (paymentSession.getShortCodeType().equals(ShortCodeType.UNVERIFIED)) {
+                darajaService.forwardPayment(paymentSession);
+            }
 
             log.info("Transaction Details -> Phone: {}, Amount: {}, Mpesa Receipt: {}", phoneNumber, amount, mpesaReceiptNumber);
 

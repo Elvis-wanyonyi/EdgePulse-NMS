@@ -13,7 +13,6 @@ import com.wolfcode.MikrotikNetwork.service.MikrotikService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import me.legrange.mikrotik.MikrotikApiException;
-import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -94,10 +93,8 @@ public class HotspotController {
     }
 
     @GetMapping("/clients")
-    public Page<ClientResponse> getAllClients(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return mikrotikService.getAllClients(page, size);
+    public List<ClientResponse> getAllClients() {
+        return mikrotikService.getAllClients();
     }
 
     @GetMapping("/totalActive-users/{routerName}")
@@ -110,14 +107,15 @@ public class HotspotController {
         return mikrotikService.getAllActiveClients(routerName);
     }
 
-    @GetMapping("/total-users/{routerName}")
-    public int getTotalConnectedUsers(@PathVariable String routerName) throws MikrotikApiException {
+    @GetMapping("/total-connected-clients/{routerName}")
+    public int getTotalOfflineClients(@PathVariable String routerName) throws MikrotikApiException {
         return mikrotikService.getTotalConnectedUsers(routerName);
     }
 
-    @GetMapping("/users/{routerName}")
-    public List<RouterClientResponse> getConnectedUsers(@PathVariable String routerName) throws MikrotikApiException {
+    @GetMapping("/connected/{routerName}")
+    public List<ActiveUsersResponse> getConnectedUsers(@PathVariable String routerName) throws MikrotikApiException {
         return mikrotikService.getConnectedUsers(routerName);
     }
+
 
 }

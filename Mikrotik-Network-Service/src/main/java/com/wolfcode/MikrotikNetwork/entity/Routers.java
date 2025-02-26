@@ -24,6 +24,7 @@ public class Routers {
     @Column(nullable = false)
     private String username;
     private String password;
+    private String routerInterface;
     private String description;
 
 }

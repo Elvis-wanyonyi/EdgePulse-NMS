@@ -1,6 +1,7 @@
 package com.wolfcode.MikrotikNetwork.entity;
 
 import com.wolfcode.MikrotikNetwork.dto.ActivePeriod;
+import com.wolfcode.MikrotikNetwork.dto.ClientStatus;
 import com.wolfcode.MikrotikNetwork.dto.LoginBy;
 import com.wolfcode.MikrotikNetwork.dto.ServiceType;
 import jakarta.persistence.*;
@@ -40,6 +41,8 @@ public class Clients {
     private LocalDateTime expiresOn;
     @Enumerated(EnumType.STRING)
     private LoginBy loginBy;
+    @Enumerated(EnumType.STRING)
+    private ClientStatus status;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "plan_id")

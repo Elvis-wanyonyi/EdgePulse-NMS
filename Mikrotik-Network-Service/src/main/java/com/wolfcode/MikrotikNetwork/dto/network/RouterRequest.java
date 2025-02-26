@@ -15,6 +15,7 @@ public class RouterRequest {
     private String routerName;
     @NotBlank(message = "Enter router ip address")
     private String routerIPAddress;
+    private String routerInterface;
     private String username;
     private String password;
     private String description;

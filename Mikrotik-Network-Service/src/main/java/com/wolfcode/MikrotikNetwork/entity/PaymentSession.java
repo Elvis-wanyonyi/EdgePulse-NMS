@@ -1,6 +1,7 @@
 package com.wolfcode.MikrotikNetwork.entity;
 
 import com.wolfcode.MikrotikNetwork.dto.Status;
+import com.wolfcode.MikrotikNetwork.tenants.dto.ShortCodeType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -29,5 +30,8 @@ public class PaymentSession {
     private String amount;
     @Enumerated(EnumType.STRING)
     private Status status;
+    @Enumerated(EnumType.STRING)
+    private ShortCodeType shortCodeType;
+    private String shortCode;
 
 }

@@ -2,6 +2,7 @@ package com.wolfcode.MikrotikNetwork.service;
 
 
 import com.wolfcode.MikrotikNetwork.dto.ClientResponse;
+import com.wolfcode.MikrotikNetwork.dto.ClientStatus;
 import com.wolfcode.MikrotikNetwork.dto.hotspot.ActiveUsersResponse;
 import com.wolfcode.MikrotikNetwork.dto.hotspot.RouterClientResponse;
 import com.wolfcode.MikrotikNetwork.dto.network.IPPoolDto;
@@ -10,6 +11,7 @@ import com.wolfcode.MikrotikNetwork.entity.Clients;
 import com.wolfcode.MikrotikNetwork.entity.Plans;
 import com.wolfcode.MikrotikNetwork.entity.Routers;
 import com.wolfcode.MikrotikNetwork.entity.UserSession;
+import com.wolfcode.MikrotikNetwork.repository.ClientsRepository;
 import com.wolfcode.MikrotikNetwork.repository.RouterRepository;
 import me.legrange.mikrotik.ApiConnection;
 import me.legrange.mikrotik.MikrotikApiException;
@@ -24,6 +26,7 @@ public class MikrotikClient {
 
     private final RouterRepository routerRepository;
     private ApiConnection connection;
+    private ClientsRepository clientsRepository;
 
     public MikrotikClient(RouterRepository routerRepository) {
         this.routerRepository = routerRepository;
@@ -88,18 +91,30 @@ public class MikrotikClient {
         List<Map<String, String>> response = connection.execute(command);
 
         List<ActiveUsersResponse> activeClients = new ArrayList<>();
-        for (Map<String, String> clientData : response) {
-            ActiveUsersResponse activeClient = new ActiveUsersResponse();
 
-            activeClient.setName(clientData.get("user"));
-            activeClient.setIpAddress(clientData.get("address"));
-            activeClient.setMacAddress(clientData.get("mac-address"));
-            activeClient.setUptime(clientData.get("uptime"));
-            activeClient.setRxRateTxRate(clientData.get("limit-uptime"));
+        for (Map<String, String> clientData : response) {
+            String username = clientData.get("user");
+
+            Clients client = clientsRepository.findByUsername(username)
+                    .orElse(null);
+
+            ActiveUsersResponse activeClient = new ActiveUsersResponse();
+            activeClient.setUsername(username);
+
+            if (client != null) {
+                activeClient.setPhone(client.getPhone());
+                activeClient.setMpesaRef(client.getMpesaRef());
+                activeClient.setType(client.getType());
+                activeClient.setCreatedOn(client.getCreatedOn());
+                activeClient.setExpiresOn(client.getExpiresOn());
+                activeClient.setLoginBy(client.getLoginBy());
+                activeClient.setPlan(client.getPlan().getPlanName());
+                activeClient.setRouter(client.getRouter().getRouterName());
+                activeClient.setStatus(ClientStatus.ACTIVE);
+            }
             activeClients.add(activeClient);
         }
         return activeClients;
-
     }
 
     public List<ClientResponse> getTotalConnectedUsers(String routerName) throws MikrotikApiException {
@@ -111,24 +126,6 @@ public class MikrotikClient {
         for (Map<String, String> clientData : response) {
             ClientResponse connectedUser = new ClientResponse();
             connectedUser.setUsername(clientData.get("mac-address"));
-            connectedUsers.add(connectedUser);
-        }
-        return connectedUsers;
-    }
-
-    public List<RouterClientResponse> getConnectedUsers(String routerName) throws MikrotikApiException {
-        connectRouter(routerName);
-        String command = "/ip/hotspot/user/print";
-        List<Map<String, String>> response = connection.execute(command);
-
-        List<RouterClientResponse> connectedUsers = new ArrayList<>();
-        for (Map<String, String> clientData : response) {
-            RouterClientResponse connectedUser = new RouterClientResponse();
-            connectedUser.setName(clientData.getOrDefault("name", "Unknown"));
-            connectedUser.setProfile(clientData.getOrDefault("profile", "Unknown"));
-            connectedUser.setIpAddress(clientData.getOrDefault("address", "No IP Assigned"));
-            connectedUser.setMacAddress(clientData.getOrDefault("mac-address", "No MAC Assigned"));
-
             connectedUsers.add(connectedUser);
         }
         return connectedUsers;
@@ -148,35 +145,28 @@ public class MikrotikClient {
         return healthData;
     }
 
-    public CompletableFuture<Map<String, Object>> getRouterTraffic(String routerInterface, String routerName) throws MikrotikApiException {
-        connectRouter(routerName);
-
+    public CompletableFuture<Map<String, Object>> monitorRouterTraffic(String interfaceName) {
         CompletableFuture<Map<String, Object>> future = new CompletableFuture<>();
 
-        connection.execute(
-                "/interface/monitor-traffic interface=" + routerInterface + " once",
-                new ResultListener() {
-
-                    @Override
-                    public void receive(Map<String, String> result) {
-                        System.out.println("Traffic Data: " + result);
-
-                        Map<String, Object> trafficData = new HashMap<>(result);
-                        future.complete(trafficData);
-                    }
-
-                    @Override
-                    public void error(MikrotikApiException e) {
-                        future.completeExceptionally(e);
-                    }
-
-                    @Override
-                    public void completed() {
-                        System.out.println("Asynchronous command has finished");
-                    }
+        try {
+            connection.execute("/interface/monitor-traffic interface=" + interfaceName + " once", new ResultListener() {
+                @Override
+                public void receive(Map<String, String> result) {
+                    future.complete(new HashMap<>(result));
                 }
-        );
+                @Override
+                public void error(MikrotikApiException e) {
+                    future.completeExceptionally(e);
+                }
+                @Override
+                public void completed() {
+                    System.out.println("Traffic monitoring completed.");
+                }
+            });
 
+        } catch (MikrotikApiException e) {
+            future.completeExceptionally(e);
+        }
         return future;
     }
 
@@ -191,7 +181,6 @@ public class MikrotikClient {
                 alerts.put("unauthorizedAccess", "Unauthorized login attempt detected.");
             }
         }
-
         alerts.put("downtime", "No downtime detected in the logs.");
 
         return alerts;
@@ -205,7 +194,6 @@ public class MikrotikClient {
         for (int i = 0; i < logEntries.size(); i++) {
             logs.put("log" + (i + 1), logEntries.get(i).get("message"));
         }
-
         return logs;
     }
 
@@ -221,7 +209,7 @@ public class MikrotikClient {
             }
         } catch (MikrotikApiException e) {
             System.err.println("Error executing action '" + action + "' on router '" + routerName + "': " + e.getMessage());
-            throw e;
+            throw new MikrotikApiException("Failed to "+ action + " router '" + routerName + "'", e);
         }
     }
 
@@ -432,4 +420,33 @@ public class MikrotikClient {
         }
     }
 
+    public Map<String, Object> getRouterResources(String routerName) throws MikrotikApiException {
+        connectRouter(routerName);
+        Map<String, Object> resourceData = new HashMap<>();
+        try {
+            List<Map<String, String>> result = connection.execute("/system/resource/print");
+
+            if (!result.isEmpty()) {
+                Map<String, String> data = result.get(0);
+                resourceData.put("uptime", data.get("uptime"));
+                resourceData.put("cpuLoad", data.get("cpu-load"));
+                resourceData.put("freeMemory", data.get("free-memory"));
+                resourceData.put("totalMemory", data.get("total-memory"));
+                resourceData.put("freeHddSpace", data.get("free-hdd-space"));
+                resourceData.put("totalHddSpace", data.get("total-hdd-space"));
+                resourceData.put("architectureName", data.get("architecture-name"));
+                resourceData.put("boardName", data.get("board-name"));
+                resourceData.put("version", data.get("version"));
+            }
+        } catch (MikrotikApiException e) {
+            throw new MikrotikApiException("Error fetching router resources:");
+        }
+        return resourceData;
+    }
+
+    public Map<String, Object> getRouterIpAddresses(String routerName) throws MikrotikApiException {
+        connectRouter(routerName);
+        //command to fetch ip addresses
+        return null;
+    }
 }

@@ -1,5 +1,6 @@
 package com.wolfcode.MikrotikNetwork.repository;
 
+import com.wolfcode.MikrotikNetwork.dto.ServiceType;
 import com.wolfcode.MikrotikNetwork.entity.Clients;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,6 +12,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Repository
 public interface ClientsRepository extends JpaRepository<Clients,Long> {
@@ -23,6 +25,7 @@ public interface ClientsRepository extends JpaRepository<Clients,Long> {
 
     Clients findUserByUsername(@NotNull(message = "Enter Voucher") String voucherCode);
 
+    Optional<Clients> findByUsername(String  username);
 
     @Query("SELECT COALESCE(SUM(u.payment), 0) FROM Clients u")
     int sumAllRevenue();
@@ -42,4 +45,5 @@ public interface ClientsRepository extends JpaRepository<Clients,Long> {
     @Query("SELECT u.plan, COALESCE(SUM(u.payment), 0) FROM Clients u GROUP BY u.plan")
     Map<String, Integer> sumRevenueByPackageType();
 
+    List<Clients> findAllByType(ServiceType serviceType);
 }
