@@ -104,19 +104,19 @@ public class HotspotController {
         return mikrotikService.getTotalActiveClients();
     }
 
-    @GetMapping("/active-clients/{routerName}")
-    public List<ActiveUsersResponse> getAllActiveClients(@PathVariable String routerName) throws MikrotikApiException {
-        return mikrotikService.getAllActiveClients(routerName);
+    @GetMapping("/active-clients")
+    public List<ActiveUsersResponse> getAllActiveClients() throws MikrotikApiException {
+        return mikrotikService.getAllActiveClients();
     }
 
-    @GetMapping("/total-connected-clients/{routerName}")
-    public int getTotalOfflineClients(@PathVariable String routerName) throws MikrotikApiException {
-        return mikrotikService.getTotalConnectedUsers(routerName);
+    @GetMapping("/total-connected-clients")
+    public int getTotalOfflineClients() throws MikrotikApiException {
+        return mikrotikService.getTotalConnectedUsers();
     }
 
-    @GetMapping("/connected/{routerName}")
-    public List<ClientResponse> getConnectedUsers(@PathVariable String routerName) throws MikrotikApiException {
-        return mikrotikService.getConnectedUsers(routerName);
+    @GetMapping("/connected")
+    public List<ClientResponse> getConnectedUsers() {
+        return mikrotikService.getConnectedUsers();
     }
 
     @GetMapping("/client/{username}")

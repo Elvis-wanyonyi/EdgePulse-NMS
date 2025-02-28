@@ -6,13 +6,14 @@ import com.wolfcode.MikrotikNetwork.dto.ClientStatus;
 import com.wolfcode.MikrotikNetwork.dto.hotspot.ActiveUsersResponse;
 import com.wolfcode.MikrotikNetwork.dto.hotspot.ClientLogs;
 import com.wolfcode.MikrotikNetwork.dto.network.IPPoolDto;
-import com.wolfcode.MikrotikNetwork.dto.pppoe.PPPoEClientDto;
+import com.wolfcode.MikrotikNetwork.dto.pppoe.PPPoEClientsResponse;
 import com.wolfcode.MikrotikNetwork.entity.Clients;
 import com.wolfcode.MikrotikNetwork.entity.Plans;
 import com.wolfcode.MikrotikNetwork.entity.Routers;
 import com.wolfcode.MikrotikNetwork.entity.UserSession;
 import com.wolfcode.MikrotikNetwork.repository.ClientsRepository;
 import com.wolfcode.MikrotikNetwork.repository.RouterRepository;
+import lombok.extern.slf4j.Slf4j;
 import me.legrange.mikrotik.ApiConnection;
 import me.legrange.mikrotik.MikrotikApiException;
 import me.legrange.mikrotik.ResultListener;
@@ -23,6 +24,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @Component
+@Slf4j
 public class MikrotikClient {
 
     private final RouterRepository routerRepository;
@@ -56,14 +58,31 @@ public class MikrotikClient {
                 ApiConnection conn = ApiConnection.connect(router.getRouterIPAddress());
                 conn.login(router.getUsername(), router.getPassword());
                 connections.put(router.getRouterName(), conn);
+                log.info("Connected to router: {}", router.getRouterName());
             } catch (MikrotikApiException e) {
-                System.err.println("Failed to connect to router: " + router.getRouterName() + " - " + e.getMessage());
+                log.error("Failed to connect to router: {} - {}", router.getRouterName(), e.getMessage());
             }
         }
         return connections;
     }
 
+    public Map<String, List<Map<String, String>>> executeCommandOnAllRouters(String command) {
+        Map<String, ApiConnection> connections = connectAllRouters();
+        Map<String, List<Map<String, String>>> results = new HashMap<>();
 
+        for (Map.Entry<String, ApiConnection> entry : connections.entrySet()) {
+            String routerName = entry.getKey();
+            ApiConnection connection = entry.getValue();
+            try {
+                List<Map<String, String>> response = connection.execute(String.format("%s", command));
+                results.put(routerName, response);
+                log.info("Executed command on router {}: {} records returned", routerName, response.size());
+            } catch (MikrotikApiException e) {
+                log.error("Error executing command on router {}: {}", routerName, e.getMessage());
+            }
+        }
+        return results;
+    }
 
     public void createHotspotUser(String ipAddress,
                                   String macAddress, String profile, String uptimeLimit, Routers routers)
@@ -89,64 +108,64 @@ public class MikrotikClient {
         connection.execute(command);
     }
 
-    public List<ClientResponse> getTotalActiveClients() throws MikrotikApiException {
-        connectAllRouters();
+    public List<ClientResponse> getTotalActiveClients() {
         String command = "/ip/hotspot/active/print";
-        List<Map<String, String>> response = connection.execute(command);
+        Map<String, List<Map<String, String>>> results = executeCommandOnAllRouters(command);
 
         List<ClientResponse> activeClients = new ArrayList<>();
-        for (Map<String, String> clientData : response) {
-            ClientResponse activeClient = new ClientResponse();
-            activeClient.setUsername(clientData.get("mac-address"));
-            activeClients.add(activeClient);
+        for (Map.Entry<String, List<Map<String, String>>> entry : results.entrySet()) {
+            String routerName = entry.getKey();
+            for (Map<String, String> clientData : entry.getValue()) {
+                ClientResponse activeClient = new ClientResponse();
+                activeClient.setUsername(clientData.get("user"));
+                activeClient.setRouter(routerName);
+                activeClients.add(activeClient);
+            }
         }
         return activeClients;
     }
 
-    public List<ActiveUsersResponse> getAllActiveClients(String routerName) throws MikrotikApiException {
-        connectRouter(routerName);
+    public List<ActiveUsersResponse> getAllActiveClients() {
         String command = "/ip/hotspot/active/print";
-        List<Map<String, String>> response = connection.execute(command);
+        Map<String, List<Map<String, String>>> results = executeCommandOnAllRouters(command);
 
         List<ActiveUsersResponse> activeClients = new ArrayList<>();
+        for (Map.Entry<String, List<Map<String, String>>> entry : results.entrySet()) {
+            String routerName = entry.getKey();
+            for (Map<String, String> clientData : entry.getValue()) {
+                String username = clientData.get("user");
+                Clients client = clientsRepository.findByUsername(username).orElse(null);
 
-        for (Map<String, String> clientData : response) {
-            String username = clientData.get("user");
-
-            Clients client = clientsRepository.findByUsername(username)
-                    .orElse(null);
-
-            ActiveUsersResponse activeClient = new ActiveUsersResponse();
-            activeClient.setUsername(username);
-
-            if (client != null) {
-                activeClient.setPhone(client.getPhone());
-                activeClient.setMpesaRef(client.getMpesaRef());
-                activeClient.setType(client.getType());
-                activeClient.setCreatedOn(client.getCreatedOn());
-                activeClient.setExpiresOn(client.getExpiresOn());
-                activeClient.setLoginBy(client.getLoginBy());
-                activeClient.setPlan(client.getPlan().getPlanName());
-                activeClient.setRouter(client.getRouter().getRouterName());
-                activeClient.setStatus(ClientStatus.ACTIVE);
+                ActiveUsersResponse activeClient = new ActiveUsersResponse();
+                activeClient.setUsername(username);
+                if (client != null) {
+                    activeClient.setPhone(client.getPhone());
+                    activeClient.setMpesaRef(client.getMpesaRef());
+                    activeClient.setType(client.getType());
+                    activeClient.setCreatedOn(client.getCreatedOn());
+                    activeClient.setExpiresOn(client.getExpiresOn());
+                    activeClient.setLoginBy(client.getLoginBy());
+                    activeClient.setPlan(client.getPlan().getPlanName());
+                    activeClient.setRouter(client.getRouter().getRouterName());
+                    activeClient.setStatus(ClientStatus.ACTIVE);
+                } else {
+                    activeClient.setRouter(routerName);
+                }
+                activeClients.add(activeClient);
             }
-            activeClients.add(activeClient);
         }
         return activeClients;
     }
 
-    public List<ClientResponse> getTotalConnectedUsers(String routerName) throws MikrotikApiException {
-        connectRouter(routerName);
+    public int getTotalConnectedUsers(){
         String command = "/ip/hotspot/user/print";
-        List<Map<String, String>> response = connection.execute(command);
+        Map<String, List<Map<String, String>>> results = executeCommandOnAllRouters(command);
 
-        List<ClientResponse> connectedUsers = new ArrayList<>();
-        for (Map<String, String> clientData : response) {
-            ClientResponse connectedUser = new ClientResponse();
-            connectedUser.setUsername(clientData.get("mac-address"));
-            connectedUsers.add(connectedUser);
+        int totalCount = 0;
+        for (List<Map<String, String>> response : results.values()) {
+            totalCount += response.size();
         }
-        return connectedUsers;
+        return totalCount;
     }
 
     public Map<String, String> getRouterHealth(String routerName) throws MikrotikApiException {
@@ -322,9 +341,10 @@ public class MikrotikClient {
         }
     }
 
-    public void removePppoeProfile(String name, String router) throws MikrotikApiException {
-        connectRouter(router);
+    public void removePppoeProfile(Plans pppoePlan) throws MikrotikApiException {
+        connectRouter(pppoePlan.getRouter().getRouterName());
         try {
+            String name = pppoePlan.getPlanName();
             List<Map<String, String>> results = connection.execute("/ppp/profile/print where name=" + name);
             if (results.isEmpty()) {
                 throw new RuntimeException("PPPoE profile not found: " + name);
@@ -337,7 +357,7 @@ public class MikrotikClient {
         }
     }
 
-    public void createPppoeClient(PPPoEClientDto request, String routerName) throws MikrotikApiException {
+    public void createPppoeClient(PPPoEClientsResponse request, String routerName) throws MikrotikApiException {
         connectRouter(routerName);
         try {
             String command = String.format(

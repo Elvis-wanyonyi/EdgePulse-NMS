@@ -265,16 +265,15 @@ public class MikrotikService {
         return activeClients.size();
     }
 
-    public List<ActiveUsersResponse> getAllActiveClients(String routerName) throws MikrotikApiException {
-        return mikroTikClient.getAllActiveClients(routerName);
+    public List<ActiveUsersResponse> getAllActiveClients() throws MikrotikApiException {
+        return mikroTikClient.getAllActiveClients();
     }
 
-    public int getTotalConnectedUsers(String routerName) throws MikrotikApiException {
-        List<ClientResponse> connectedUsers = mikroTikClient.getTotalConnectedUsers(routerName);
-        return connectedUsers.size();
+    public int getTotalConnectedUsers() throws MikrotikApiException {
+        return mikroTikClient.getTotalConnectedUsers();
     }
 
-    public List<ClientResponse> getConnectedUsers(String routerName) {
+    public List<ClientResponse> getConnectedUsers() {
         List<Clients> clients = clientsRepository.findAllByTypeAndExpiresOnAfter(ServiceType.HOTSPOT, LocalDateTime.now());
 
         return clients.stream().map(this::mapToActiveClients).toList();
@@ -294,7 +293,6 @@ public class MikrotikService {
                 .router(clients.getRouter().getRouterName())
                 .build();
     }
-
 
     public Map<String, String> getRouterHealth(String routerName) throws MikrotikApiException {
         return mikroTikClient.getRouterHealth(routerName);
