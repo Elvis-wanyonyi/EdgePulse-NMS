@@ -52,4 +52,5 @@ public interface ClientsRepository extends JpaRepository<Clients,Long> {
     @Query("SELECT c FROM Clients c WHERE c.username = :username")
     List<Clients> findAllByUsername(@Param("username") String username);
 
+    Clients findByAccount(String billRefNumber);
 }

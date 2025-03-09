@@ -1,5 +1,6 @@
 package com.wolfcode.MikrotikNetwork.controller;
 
+import com.wolfcode.MikrotikNetwork.dto.pppoe.CreatePPPoEClient;
 import com.wolfcode.MikrotikNetwork.dto.pppoe.PPPOEProfileDto;
 import com.wolfcode.MikrotikNetwork.dto.pppoe.PPPoEClientsResponse;
 import com.wolfcode.MikrotikNetwork.dto.pppoe.PPPoESubscription;
@@ -29,6 +30,21 @@ public class PPPoEController {
         return pppoeService.getAllPppoeClients();
     }
 
+    @GetMapping("/clients/{id}")
+    public PPPoEClientsResponse getPppoeClientById(@PathVariable("id") Long id){
+        return pppoeService.getPppoeClientById(id);
+    }
+
+    @GetMapping("/clients/total-active")
+    public int getTotalActivePppoeClients(){
+        return pppoeService.getTotalActivePppoeClients();
+    }
+
+    @GetMapping("/clients/active")
+    public List<PPPoEClientsResponse> getActivePppoeClients(){
+        return pppoeService.getActivePppoeClients();
+    }
+
     @DeleteMapping("/{id}")
     public String deletePppoeProfile(@PathVariable Long id) throws MikrotikApiException {
         pppoeService.deletePppoeProfile(id);
@@ -42,19 +58,14 @@ public class PPPoEController {
     }
 
     @PostMapping("/add-client")
-    public String addPPPoEClient(@RequestBody PPPoEClientsResponse request) throws MikrotikApiException {
+    public String addPPPoEClient(@RequestBody CreatePPPoEClient request) throws MikrotikApiException {
         pppoeService.addPppoeClient(request);
         return "Client added successfully";
     }
 
-    @GetMapping("/clients/{id}")
-    public PPPoEClientsResponse getPppoeClientById(@PathVariable Long id){
-        return pppoeService.getClientById(id);
-    }
-
     @PutMapping("/edit-account/{id}")
-    public String editPppoeClientAccount(@PathVariable Long id, @RequestBody PPPoEClientsResponse clientDto) throws MikrotikApiException {
-        pppoeService.editClientAccount(id, clientDto);
+    public String editPppoeClientAccount(@PathVariable Long id, @RequestBody CreatePPPoEClient request) throws MikrotikApiException {
+        pppoeService.editClientAccount(id, request);
         return "Account updated";
     }
 
@@ -83,7 +94,7 @@ public class PPPoEController {
     }
 
     @PostMapping("/subscribe/{clientId}")
-    public String subscribe(@PathVariable Long clientId, @RequestBody PPPoESubscription subscription) throws MikrotikApiException {
+    public String subscribe(@PathVariable Long clientId, @RequestBody PPPoESubscription subscription) {
         pppoeService.clientSubscription(clientId, subscription);
         return "Success!";
     }

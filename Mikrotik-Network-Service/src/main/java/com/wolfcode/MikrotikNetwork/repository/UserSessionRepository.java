@@ -12,8 +12,7 @@ import java.util.List;
 @Repository
 public interface UserSessionRepository extends JpaRepository<UserSession, Long> {
 
-    @Query("SELECT u FROM UserSession u WHERE u.sessionEndTime < :now ")
-    List<UserSession> findExpiredSessions(@Param("now") LocalDateTime now);
+    @Query("SELECT us FROM UserSession us WHERE us.sessionEndTime <= :now AND us.type = :type")
+    List<UserSession> findExpiredSessionsByType(@Param("now") LocalDateTime now, @Param("type") String type);
 
-    void deleteByUsername(String username);
 }

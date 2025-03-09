@@ -6,7 +6,6 @@ import com.wolfcode.MikrotikNetwork.dto.ClientStatus;
 import com.wolfcode.MikrotikNetwork.dto.hotspot.ActiveUsersResponse;
 import com.wolfcode.MikrotikNetwork.dto.hotspot.ClientLogs;
 import com.wolfcode.MikrotikNetwork.dto.network.IPPoolDto;
-import com.wolfcode.MikrotikNetwork.dto.pppoe.PPPoEClientsResponse;
 import com.wolfcode.MikrotikNetwork.entity.Clients;
 import com.wolfcode.MikrotikNetwork.entity.Plans;
 import com.wolfcode.MikrotikNetwork.entity.Routers;
@@ -28,11 +27,13 @@ import java.util.concurrent.CompletableFuture;
 public class MikrotikClient {
 
     private final RouterRepository routerRepository;
+    private final ClientsRepository clientsRepository;
     private ApiConnection connection;
-    private ClientsRepository clientsRepository;
 
-    public MikrotikClient(RouterRepository routerRepository) {
+
+    public MikrotikClient(RouterRepository routerRepository, ClientsRepository clientsRepository) {
         this.routerRepository = routerRepository;
+        this.clientsRepository = clientsRepository;
     }
 
 
@@ -357,12 +358,14 @@ public class MikrotikClient {
         }
     }
 
-    public void createPppoeClient(PPPoEClientsResponse request, String routerName) throws MikrotikApiException {
-        connectRouter(routerName);
+    public void createPppoeClient(Clients client) throws MikrotikApiException {
+        connectRouter(client.getRouter().getRouterName());
+        String username = client.getUsername();
+        String password = client.getPassword();
         try {
             String command = String.format(
-                    "/ppp/secret/add name=%s password=%s service=pppoe profile=%s", request.getUsername(),
-                    request.getPassword(), request.getPlan());
+                    "/ppp/secret/add name=%s password=%s service=pppoe profile=%s", username,
+                    password, client.getPlan());
             connection.execute(command);
         } catch (MikrotikApiException e) {
             throw new MikrotikApiException("Failed to create PPPoE client: " + e.getMessage(), e);
@@ -425,7 +428,7 @@ public class MikrotikClient {
         }
     }
 
-    public void reWriteAccount(Clients client) throws MikrotikApiException {
+    public void reWritePppoeAccount(Clients client) throws MikrotikApiException {
         connectRouter(client.getRouter().getRouterName());
         try {
             var id = findCommand(client);
@@ -515,5 +518,25 @@ public class MikrotikClient {
                 log.get("message"),
                 router
         )).toList();
+    }
+
+    public int getTotalActivePppoeClients() {
+        return executeCommandOnAllRouters("/ppp/active/print")
+                .values().stream()
+                .mapToInt(List::size)
+                .sum();
+    }
+
+    public List<Map<String, String>> getAllActivePppoeClients() {
+        List<Map<String, String>> allClients = new ArrayList<>();
+        Map<String, List<Map<String, String>>> results = executeCommandOnAllRouters("/ppp/active/print");
+
+        for (Map.Entry<String, List<Map<String, String>>> entry : results.entrySet()) {
+            for (Map<String, String> record : entry.getValue()) {
+                record.put("router", entry.getKey());
+                allClients.add(record);
+            }
+        }
+        return allClients;
     }
 }

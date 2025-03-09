@@ -5,9 +5,13 @@ import com.wolfcode.MikrotikNetwork.config.B2BMpesaConfig;
 import com.wolfcode.MikrotikNetwork.config.MpesaConfig;
 import com.wolfcode.MikrotikNetwork.dto.payment.*;
 import com.wolfcode.MikrotikNetwork.entity.B2BTransaction;
+import com.wolfcode.MikrotikNetwork.entity.Clients;
+import com.wolfcode.MikrotikNetwork.entity.PPPoETransaction;
 import com.wolfcode.MikrotikNetwork.entity.PaymentSession;
 import com.wolfcode.MikrotikNetwork.multitenancy.TenantContext;
 import com.wolfcode.MikrotikNetwork.repository.B2BTransactionRepository;
+import com.wolfcode.MikrotikNetwork.repository.ClientsRepository;
+import com.wolfcode.MikrotikNetwork.repository.PPPoETransactionRepository;
 import com.wolfcode.MikrotikNetwork.repository.PaymentSessionRepository;
 import com.wolfcode.MikrotikNetwork.tenants.dto.ShortCodeType;
 import com.wolfcode.MikrotikNetwork.tenants.entity.DarajaPaymentDetails;
@@ -17,6 +21,7 @@ import com.wolfcode.MikrotikNetwork.utils.MpesaEncryptionUtil;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import me.legrange.mikrotik.MikrotikApiException;
 import okhttp3.*;
 import org.springframework.stereotype.Service;
 
@@ -40,6 +45,7 @@ public class DarajaService {
     private final PaymentGatewayRepo paymentGatewayRepo;
     private final PaymentSessionRepository paymentSessionRepository;
     private final B2BTransactionRepository b2BTransactionRepository;
+    private final PPPOEService pppoeService;
 
 
     public TokenResponse getAccessToken(String consumerKey, String consumerSecret) {
@@ -266,5 +272,17 @@ public class DarajaService {
             log.error("Error forwarding B2B payment: {}", e.getMessage(), e);
             throw new RuntimeException("Error forwarding B2B payment: " + e.getMessage(), e);
         }
+    }
+
+    @Transactional
+    public MpesaC2BResponse processC2BTransaction(MpesaC2BRequest request) throws MikrotikApiException {
+        MpesaC2BResponse response = new MpesaC2BResponse();
+
+        pppoeService.updatePppoeClientPayment(request);
+
+        response.setResultCode("0");
+        response.setResultDesc("Accepted");
+
+        return response;
     }
 }

@@ -9,6 +9,7 @@ import com.wolfcode.MikrotikNetwork.repository.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import me.legrange.mikrotik.ApiConnection;
 import me.legrange.mikrotik.MikrotikApiException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
@@ -37,6 +38,7 @@ public class MikrotikService {
     private final PaymentSessionRepository paymentSessionRepository;
     private final PlansRepository plansRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final RouterConnectionPool routerConnectionPool;
 
 
     public void connectUser(String ipAddress, String macAddress, String packageType,
@@ -259,17 +261,17 @@ public class MikrotikService {
                 .build();
     }
 
-    public int getTotalActiveClients() throws MikrotikApiException {
+    public int getTotalActiveClients() {
         List<ClientResponse> activeClients = mikroTikClient.getTotalActiveClients();
 
         return activeClients.size();
     }
 
-    public List<ActiveUsersResponse> getAllActiveClients() throws MikrotikApiException {
+    public List<ActiveUsersResponse> getAllActiveClients() {
         return mikroTikClient.getAllActiveClients();
     }
 
-    public int getTotalConnectedUsers() throws MikrotikApiException {
+    public int getTotalConnectedUsers() {
         return mikroTikClient.getTotalConnectedUsers();
     }
 
@@ -372,25 +374,41 @@ public class MikrotikService {
     }
 
     @Scheduled(cron = "0 */3 * * * *")
-    public void removeExpiredUsers() {
-        System.out.println("Checking for Expired Users");
-        List<UserSession> expiredSessions = userSessionRepository.findExpiredSessions(LocalDateTime.now());
+    public void removeExpiredUsersBulk() {
+        List<UserSession> expiredHotspotSessions = userSessionRepository.findExpiredSessionsByType(LocalDateTime.now(), "hotspot");
+        processExpiredSessionsBulk(expiredHotspotSessions, "hotspot", "/ip/hotspot/user/remove where name~\"%s\"");
 
-        for (UserSession session : expiredSessions) {
-            try {
-                if ("hotspot".equalsIgnoreCase(session.getType().toString())) {
-                    mikroTikClient.removeExpiredUser(session);
-                    System.out.println("Removed expired Hotspot user: " + session.getUsername());
-                } else if ("pppoe".equalsIgnoreCase(session.getType().toString())) {
-                    mikroTikClient.disconnectOverdueClients(session);
-                    System.out.println("Disconnected expired PPPoE user: " + session.getUsername());
-                }
+        List<UserSession> expiredPppoeSessions = userSessionRepository.findExpiredSessionsByType(LocalDateTime.now(), "pppoe");
+        processExpiredSessionsBulk(expiredPppoeSessions, "pppoe", "/ppp/secret/disable where name~\"%s\"");
+    }
 
-                userSessionRepository.delete(session);
-            } catch (MikrotikApiException e) {
-                System.err.println("Error handling expired user: " + session.getUsername());
-            }
+    private void processExpiredSessionsBulk(List<UserSession> sessions, String type, String commandTemplate) {
+        if (sessions.isEmpty()) {
+            log.info("No expired {} sessions found", type);
+            return;
         }
+        // Group sessions by router name
+        Map<String, List<UserSession>> sessionsByRouter = sessions.stream()
+                .collect(Collectors.groupingBy(UserSession::getRouterName));
+
+        // Process each router in parallel
+        sessionsByRouter.entrySet().parallelStream().forEach(entry -> {
+            String routerName = entry.getKey();
+            List<UserSession> routerSessions = entry.getValue();
+            try {
+                ApiConnection connection = routerConnectionPool.getConnection(routerName);
+                // Build a regex pattern of usernames separated by "|"
+                String usernamesRegex = routerSessions.stream()
+                        .map(UserSession::getUsername)
+                        .collect(Collectors.joining("|"));
+                String bulkCommand = String.format(commandTemplate, usernamesRegex);
+                connection.execute(bulkCommand);
+                userSessionRepository.deleteAll(routerSessions);
+                log.info("Router {}: Processed {} expired {} sessions", routerName, routerSessions.size(), type);
+            } catch (MikrotikApiException e) {
+                log.error("Error processing {} sessions on router {}: {}", type, routerName, e.getMessage());
+            }
+        });
     }
 
     public void createHotspotPlan(@Valid PlanDto planDto) {

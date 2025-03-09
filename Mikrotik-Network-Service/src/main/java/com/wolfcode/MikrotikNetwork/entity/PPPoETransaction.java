@@ -9,25 +9,26 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-@Entity
 @Data
-@NoArgsConstructor
+@Entity
 @AllArgsConstructor
+@NoArgsConstructor
 @Builder
-@Table(name = "mpesa_transactions")
-public class TransactionsInfo {
+@Table(name = "pppoe_payments")
+public class PPPoETransaction {
+
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
     private Long id;
-    private String macAddress;
+    private String account;
     @Column(nullable = false)
     private String phoneNumber;
     @Column(name = "mpesa_code", nullable = false)
-    private String code;
+    private String mpesaRef;
     @Column(nullable = false)
     private String amount;
     private LocalDateTime date;
     @Enumerated(EnumType.STRING)
     private Status status;
-
+    private String router;
 }

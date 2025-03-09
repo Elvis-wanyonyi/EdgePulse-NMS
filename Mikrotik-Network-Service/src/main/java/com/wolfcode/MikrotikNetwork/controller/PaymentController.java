@@ -15,11 +15,13 @@ import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import me.legrange.mikrotik.MikrotikApiException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -158,4 +160,18 @@ public class PaymentController {
         return ResponseEntity.ok(acknowledgeResponse);
     }
 
+
+    @PostMapping("/confirm")
+    public ResponseEntity<MpesaC2BResponse> confirmPayment(@RequestBody MpesaC2BRequest request) throws MikrotikApiException {
+        MpesaC2BResponse response = darajaService.processC2BTransaction(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/validate")
+    public ResponseEntity<Map<String, String>> validatePayment() {
+        Map<String, String> response = new HashMap<>();
+        response.put("ResultCode", "0");
+        response.put("ResultDesc", "Accepted");
+        return ResponseEntity.ok(response);
+    }
 }

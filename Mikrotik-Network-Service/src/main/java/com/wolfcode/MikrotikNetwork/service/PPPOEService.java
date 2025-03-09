@@ -1,8 +1,12 @@
 package com.wolfcode.MikrotikNetwork.service;
 
+import com.wolfcode.MikrotikNetwork.dto.ClientStatus;
 import com.wolfcode.MikrotikNetwork.dto.LoginBy;
 import com.wolfcode.MikrotikNetwork.dto.ServiceType;
+import com.wolfcode.MikrotikNetwork.dto.Status;
+import com.wolfcode.MikrotikNetwork.dto.payment.MpesaC2BRequest;
 import com.wolfcode.MikrotikNetwork.dto.payment.PaymentRequest;
+import com.wolfcode.MikrotikNetwork.dto.pppoe.CreatePPPoEClient;
 import com.wolfcode.MikrotikNetwork.dto.pppoe.PPPOEProfileDto;
 import com.wolfcode.MikrotikNetwork.dto.pppoe.PPPoEClientsResponse;
 import com.wolfcode.MikrotikNetwork.dto.pppoe.PPPoESubscription;
@@ -10,6 +14,7 @@ import com.wolfcode.MikrotikNetwork.entity.*;
 import com.wolfcode.MikrotikNetwork.repository.*;
 import lombok.RequiredArgsConstructor;
 import me.legrange.mikrotik.MikrotikApiException;
+import org.springframework.dao.annotation.PersistenceExceptionTranslationPostProcessor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -26,9 +31,9 @@ public class PPPOEService {
     private final ClientsRepository clientsRepository;
     private final RouterRepository routerRepository;
     private final IPPoolRepository poolRepository;
-    private final DarajaService darajaService;
     private final BandwidthRepository bandwidthRepository;
     private final UserSessionRepository userSessionRepository;
+    private final PPPoETransactionRepository pppoeTransactionRepository;
 
 
     public void createPppoeProfile(PPPOEProfileDto profileDto) throws MikrotikApiException {
@@ -84,7 +89,7 @@ public class PPPOEService {
 
     public void deletePppoeProfile(Long id) throws MikrotikApiException {
         Plans pppoePlan = plansRepository.findById(id)
-                .orElseThrow(()-> new IllegalArgumentException("Plan not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Plan not found"));
         mikrotikClient.removePppoeProfile(pppoePlan);
 
         plansRepository.deleteById(pppoePlan.getId());
@@ -108,28 +113,10 @@ public class PPPOEService {
 
     }
 
-    public PPPoEClientsResponse getClientById(Long id) {
-        Clients client = clientsRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Client not found"));
-
-        Plans plan = plansRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("PPPOEProfile not found"));
-
-        return PPPoEClientsResponse.builder()
-                .fullName(client.getFullName())
-                .plan(plan.getId())
-                .account(client.getAccount())
-                .phone(client.getPhone())
-                .email(client.getEmail())
-                .address(client.getAddress())
-                .router(client.getRouter().getId())
-                .build();
-    }
-
-    public void addPppoeClient(PPPoEClientsResponse request) throws MikrotikApiException {
-        Routers router = routerRepository.findById(request.getRouter())
+    public void addPppoeClient(CreatePPPoEClient request) throws MikrotikApiException {
+        Routers router = routerRepository.findById(request.getRouter().getId())
                 .orElseThrow(() -> new IllegalArgumentException("Router not found"));
-        Plans plans = plansRepository.findById(request.getPlan())
+        Plans plans = plansRepository.findById(request.getPlan().getId())
                 .orElseThrow(() -> new IllegalArgumentException("Plan not found"));
 
         Clients client = Clients.builder()
@@ -153,7 +140,7 @@ public class PPPOEService {
                 .build();
         clientsRepository.save(client);
 
-        mikrotikClient.createPppoeClient(request, router.getRouterName());
+        mikrotikClient.createPppoeClient(client);
 
         UserSession userSession = UserSession.builder()
                 .username(client.getUsername())
@@ -166,11 +153,11 @@ public class PPPOEService {
 
     }
 
-    public void editClientAccount(Long id, PPPoEClientsResponse clientDto) throws MikrotikApiException {
+    public void editClientAccount(Long id, CreatePPPoEClient clientDto) throws MikrotikApiException {
         Clients client = clientsRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Client not found"));
 
-        Plans plans = plansRepository.findById(clientDto.getPlan())
+        Plans plans = plansRepository.findById(clientDto.getPlan().getId())
                 .orElseThrow(() -> new IllegalArgumentException("Plan not found"));
 
         client.setAccount(clientDto.getAccount());
@@ -180,6 +167,8 @@ public class PPPOEService {
         client.setPlan(plans);
         client.setUsername(clientDto.getUsername());
         client.setPassword(clientDto.getPassword());
+        client.setActivePeriod(clientDto.getActivePeriod());
+        client.setExpiresOn(clientDto.getExpiresOn());
 
         mikrotikClient.editPppoeClient(client);
         clientsRepository.save(client);
@@ -208,7 +197,7 @@ public class PPPOEService {
         client.setBalance(0);
         clientsRepository.save(client);
 
-        mikrotikClient.reWriteAccount(client);
+        mikrotikClient.reWritePppoeAccount(client);
     }
 
     public void reWriteAccount(Long id) throws MikrotikApiException {
@@ -216,7 +205,7 @@ public class PPPOEService {
                 .orElseThrow(() -> new IllegalArgumentException("Client not found"));
         clients.setCreatedOn(LocalDateTime.now());
         clients.setExpiresOn(LocalDateTime.now().plusDays(clients.getPlan().getPlanValidity() + 1));
-        mikrotikClient.reWriteAccount(clients);
+        mikrotikClient.reWritePppoeAccount(clients);
     }
 
     public void clientSubscription(Long clientId, PPPoESubscription subscription) {
@@ -227,7 +216,89 @@ public class PPPOEService {
         paymentRequest.setPhoneNumber(subscription.getPhoneNumber());
         paymentRequest.setAmount(subscription.getAmount());
 
-        darajaService.performStkPushTransaction(paymentRequest);
+        //darajaService.performStkPushTransaction(paymentRequest);
     }
 
+    public PPPoEClientsResponse getPppoeClientById(Long id) {
+        Clients client = clientsRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Client not found"));
+
+        return PPPoEClientsResponse.builder()
+                .fullName(client.getFullName())
+                .plan(client.getPlan().getPlanName())
+                .account(client.getAccount())
+                .username(client.getUsername())
+                .password(client.getPassword())
+                .phone(client.getPhone())
+                .email(client.getEmail())
+                .address(client.getAddress())
+                .router(client.getRouter().getRouterName())
+                .loginBy(client.getLoginBy().toString())
+                .status(client.getStatus().toString())
+                .type(client.getType().toString())
+                .createdOn(client.getCreatedOn())
+                .expiresOn(client.getExpiresOn())
+                .build();
+    }
+
+    public List<PPPoEClientsResponse> getActivePppoeClients() {
+        return mikrotikClient.getAllActivePppoeClients()
+                .stream()
+                .map(clientData -> {
+                    String username = clientData.get("name");
+                    String routerName = clientData.get("router");
+
+                    Clients client = clientsRepository.findByUsername(username).orElse(null);
+                    PPPoEClientsResponse response = new PPPoEClientsResponse();
+                    response.setUsername(username);
+                    response.setRouter(routerName);
+
+                    if (client != null) {
+                        response.setFullName(client.getFullName());
+                        response.setAccount(client.getAccount());
+                        response.setUsername(client.getUsername());
+                        response.setPassword(client.getPassword());
+                        response.setPhone(client.getPhone());
+                        response.setType(client.getType().toString());
+                        response.setCreatedOn(client.getCreatedOn());
+                        response.setExpiresOn(client.getExpiresOn());
+                        response.setLoginBy(client.getLoginBy().toString());
+                        response.setPlan(client.getPlan().getPlanName());
+                        response.setStatus(ClientStatus.ACTIVE.toString());
+                        response.setRouter(routerName);
+                    }
+                    return response;
+                })
+                .toList();
+    }
+
+    public int getTotalActivePppoeClients() {
+        return mikrotikClient.getTotalActivePppoeClients();
+    }
+
+    public void updatePppoeClientPayment(MpesaC2BRequest request) throws MikrotikApiException {
+
+        Clients client = clientsRepository.findByAccount(request.getBillRefNumber());
+        if (client != null) {
+            PPPoETransaction transaction = PPPoETransaction.builder()
+                    .mpesaRef(request.getCommandID())
+                    .account(client.getUsername())
+                    .amount(request.getAmount())
+                    .phoneNumber(request.getMsisdn())
+                    .date(LocalDateTime.now())
+                    .router(client.getRouter().getRouterName())
+                    .status(Status.CONFIRMED)
+                    .build();
+            pppoeTransactionRepository.save(transaction);
+
+            client.setPayment(Integer.valueOf(request.getAmount()));
+            client.setMpesaRef(request.getBillRefNumber());
+            client.setExpiresOn(LocalDateTime.now().plusDays(client.getPlan().getPlanValidity() + 1));
+            clientsRepository.save(client);
+
+            mikrotikClient.reWritePppoeAccount(client);
+        } else {
+            throw new IllegalArgumentException("Client not found");
+        }
+    }
 }

@@ -21,12 +21,6 @@ public class RevenueController {
     private final RevenueService revenueService;
 
 
-    @GetMapping
-    public ResponseEntity<Integer> getAllRevenue() {
-        int totalRevenue = revenueService.calculateAllRevenue();
-        return ResponseEntity.ok(totalRevenue);
-    }
-
     @GetMapping("/today")
     public ResponseEntity<Integer> getTodayRevenue() {
         int todayRevenue = revenueService.calculateTodayRevenue();
@@ -39,30 +33,11 @@ public class RevenueController {
         return ResponseEntity.ok(monthRevenue);
     }
 
-    @GetMapping("/filter")
-    public ResponseEntity<Integer> getCustomRevenue(
-            @RequestParam("start") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
-            @RequestParam("end") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
-        int customRevenue = revenueService.calculateCustomRevenue(start, end);
-        return ResponseEntity.ok(customRevenue);
-    }
-
     @GetMapping("/by-router")
     public ResponseEntity<Integer> getRevenueByRouter(@RequestParam("router") String router) {
         int routerRevenue = revenueService.calculateRevenueByRouter(router);
         return ResponseEntity.ok(routerRevenue);
     }
-
-    @GetMapping("/hourly-distribution")
-    public ResponseEntity<Map<Integer, Integer>> getHourlyRevenueDistribution(
-            @RequestParam(value = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        if (date == null) {
-            date = LocalDate.now();
-        }
-        Map<Integer, Integer> hourlyDistribution = revenueService.getHourlyRevenueDistribution(date);
-        return ResponseEntity.ok(hourlyDistribution);
-    }
-
 
     @GetMapping("/plan-reports")
     public ResponseEntity<Map<String, Integer>> getRevenueByPackage() {
