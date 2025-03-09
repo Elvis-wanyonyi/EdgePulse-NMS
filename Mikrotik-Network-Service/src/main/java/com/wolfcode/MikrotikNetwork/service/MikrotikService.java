@@ -387,17 +387,15 @@ public class MikrotikService {
             log.info("No expired {} sessions found", type);
             return;
         }
-        // Group sessions by router name
         Map<String, List<UserSession>> sessionsByRouter = sessions.stream()
                 .collect(Collectors.groupingBy(UserSession::getRouterName));
 
-        // Process each router in parallel
         sessionsByRouter.entrySet().parallelStream().forEach(entry -> {
             String routerName = entry.getKey();
             List<UserSession> routerSessions = entry.getValue();
             try {
                 ApiConnection connection = routerConnectionPool.getConnection(routerName);
-                // Build a regex pattern of usernames separated by "|"
+
                 String usernamesRegex = routerSessions.stream()
                         .map(UserSession::getUsername)
                         .collect(Collectors.joining("|"));

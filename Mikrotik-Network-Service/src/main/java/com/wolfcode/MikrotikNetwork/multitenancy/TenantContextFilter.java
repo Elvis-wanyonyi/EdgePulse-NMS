@@ -15,7 +15,7 @@ import java.io.IOException;
 @Component
 public class TenantContextFilter extends OncePerRequestFilter {
 
-	private final HttpHeaderTenantResolver httpRequestTenantResolver;
+    private final HttpHeaderTenantResolver httpRequestTenantResolver;
 
     public TenantContextFilter(HttpHeaderTenantResolver httpRequestTenantResolver) {
         this.httpRequestTenantResolver = httpRequestTenantResolver;
@@ -23,15 +23,14 @@ public class TenantContextFilter extends OncePerRequestFilter {
 
 
     @Override
-	protected void doFilterInternal(@NonNull HttpServletRequest request,
+    protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
         var tenantIdentifier = httpRequestTenantResolver.resolveTenantIdentifier(request);
 
-        if (StringUtils.hasText(tenantIdentifier) ) {
+        if (StringUtils.hasText(tenantIdentifier)) {
             TenantContext.setCurrentTenant(tenantIdentifier);
-
-        } else {
+        } else if (!shouldNotFilter(request)) {
             throw new IllegalArgumentException("A valid tenant must be specified for requests to %s".formatted(request.getRequestURI()));
         }
 
@@ -40,15 +39,19 @@ public class TenantContextFilter extends OncePerRequestFilter {
         } finally {
             clear();
         }
-	}
+    }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return request.getRequestURI().matches("^/user(/.*)?$");
+        String requestURI = request.getRequestURI();
+        return requestURI.matches("^/user(/.*)?$") ||
+                requestURI.startsWith("/swagger-ui") ||
+                requestURI.startsWith("/v3/api-docs") ||
+                requestURI.startsWith("/swagger-resources") ||
+                requestURI.startsWith("/actuator");
     }
 
-	private void clear() {
-		TenantContext.clear();
-	}
-
+    private void clear() {
+        TenantContext.clear();
+    }
 }

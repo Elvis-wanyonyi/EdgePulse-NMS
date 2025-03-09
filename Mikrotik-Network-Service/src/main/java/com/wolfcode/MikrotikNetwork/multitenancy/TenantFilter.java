@@ -26,8 +26,10 @@ public class TenantFilter implements Filter {
 
         boolean isUserEndpoint = requestURI.matches("^/user(/.*)?$");
         boolean isActuatorEndpoint = requestURI.startsWith("/actuator");
+        boolean isSwaggerEndpoint = requestURI.startsWith("/swagger-ui")
+                || requestURI.startsWith("/v3/api-docs") || requestURI.startsWith("/swagger-resources");
 
-        if (isUserEndpoint || isActuatorEndpoint ) {
+        if (isUserEndpoint || isActuatorEndpoint || isSwaggerEndpoint) {
             chain.doFilter(request, response);
             return;
         }
