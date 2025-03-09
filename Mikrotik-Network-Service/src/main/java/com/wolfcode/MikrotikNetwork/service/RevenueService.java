@@ -1,5 +1,6 @@
 package com.wolfcode.MikrotikNetwork.service;
 
+import com.wolfcode.MikrotikNetwork.dto.RevenueReportRequest;
 import com.wolfcode.MikrotikNetwork.repository.ClientsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -37,4 +38,7 @@ public class RevenueService {
     }
 
 
+    public int calculateRevenueReport(RevenueReportRequest request) {
+        return 0;
+    }
 }
