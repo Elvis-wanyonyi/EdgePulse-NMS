@@ -1,14 +1,13 @@
 package com.wolfcode.MikrotikNetwork.controller;
 
-import com.wolfcode.MikrotikNetwork.dto.RevenueReportRequest;
+import com.wolfcode.MikrotikNetwork.dto.PeriodReportsRequest;
+import com.wolfcode.MikrotikNetwork.dto.PeriodReportsResponse;
 import com.wolfcode.MikrotikNetwork.service.RevenueService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -31,10 +30,14 @@ public class RevenueController {
         return ResponseEntity.ok(monthRevenue);
     }
 
-    @PostMapping("/reports")
-    public ResponseEntity<Integer> getRevenueReport(@RequestBody RevenueReportRequest request) {
-        int reportRevenue = revenueService.calculateRevenueReport(request);
-        return ResponseEntity.ok(reportRevenue);
+    @PostMapping("/period-reports")
+    public ResponseEntity<List<PeriodReportsResponse>> getPeriodReport(@RequestBody PeriodReportsRequest request) {
+        return ResponseEntity.ok(revenueService.getPeriodReports(request));
+    }
+
+    @GetMapping("/daily-reports")
+    public ResponseEntity<List<PeriodReportsResponse>> getDailyReport() {
+        return ResponseEntity.ok(revenueService.getDailyReport());
     }
 
     @GetMapping("/by-router")

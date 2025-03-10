@@ -14,7 +14,6 @@ import com.wolfcode.MikrotikNetwork.entity.*;
 import com.wolfcode.MikrotikNetwork.repository.*;
 import lombok.RequiredArgsConstructor;
 import me.legrange.mikrotik.MikrotikApiException;
-import org.springframework.dao.annotation.PersistenceExceptionTranslationPostProcessor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;

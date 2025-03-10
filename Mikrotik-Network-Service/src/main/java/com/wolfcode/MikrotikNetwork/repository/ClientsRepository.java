@@ -15,17 +15,17 @@ import java.util.Map;
 import java.util.Optional;
 
 @Repository
-public interface ClientsRepository extends JpaRepository<Clients,Long> {
+public interface ClientsRepository extends JpaRepository<Clients, Long> {
 
 
     @Query("SELECT u FROM Clients u WHERE u.expiresOn < :now")
-    List<Clients> findOverdueClients(@Param("now")LocalDateTime now);
+    List<Clients> findOverdueClients(@Param("now") LocalDateTime now);
 
     Clients findByMpesaRefIgnoreCase(String code);
 
     Clients findUserByUsername(@NotNull(message = "Enter Voucher") String voucherCode);
 
-    Optional<Clients> findByUsername(String  username);
+    Optional<Clients> findByUsername(String username);
 
     @Query("SELECT COALESCE(SUM(u.payment), 0) FROM Clients u")
     int sumAllRevenue();
@@ -53,4 +53,27 @@ public interface ClientsRepository extends JpaRepository<Clients,Long> {
     List<Clients> findAllByUsername(@Param("username") String username);
 
     Clients findByAccount(String billRefNumber);
+
+
+    @Query("""
+            SELECT c FROM Clients c
+            WHERE c.createdOn BETWEEN :start AND :end
+              AND (:router = 'All routers' OR c.router.routerName = :router)
+              AND (:serviceType = 'All Transactions' OR c.type = :serviceType)
+              AND (:rechargeMethod = 'All method types' OR c.loginBy = :rechargeMethod)
+            """)
+    List<Clients> findByPeriodReports(
+            @Param("router") String router,
+            @Param("serviceType") String serviceType,
+            @Param("rechargeMethod") String rechargeMethod,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
+
+    @Query("""
+                SELECT c FROM Clients c
+                WHERE c.createdOn BETWEEN :start AND :end
+            """)
+    List<Clients> findByCreatedOnBetween(@Param("start") LocalDateTime start,
+                                         @Param("end") LocalDateTime end);
 }

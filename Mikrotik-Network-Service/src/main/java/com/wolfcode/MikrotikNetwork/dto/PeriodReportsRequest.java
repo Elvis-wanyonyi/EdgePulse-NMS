@@ -11,10 +11,10 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class RevenueReportRequest {
+public class PeriodReportsRequest {
 
     private String router;
-    private String loginBy;
+    private String rechargeMethod;
     private String serviceType;
     private LocalDate startDate;
     private LocalDate endDate;

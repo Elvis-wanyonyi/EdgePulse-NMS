@@ -1,12 +1,10 @@
 package com.wolfcode.MikrotikNetwork.dto.pppoe;
 
 import com.wolfcode.MikrotikNetwork.dto.ActivePeriod;
-import com.wolfcode.MikrotikNetwork.dto.ClientStatus;
 import com.wolfcode.MikrotikNetwork.dto.LoginBy;
 import com.wolfcode.MikrotikNetwork.dto.ServiceType;
 import com.wolfcode.MikrotikNetwork.entity.Plans;
 import com.wolfcode.MikrotikNetwork.entity.Routers;
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
